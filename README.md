@@ -6,7 +6,7 @@
 
 
 # File structure 
-
+```
 ├── LICENSE
 ├── README.md          <- The top-level README for developers using this project.
 ├── data
@@ -45,8 +45,7 @@
 ├── test.py
 ├── validation.py
 ├── multiscale_evaluation.py
-
-
+```
 
 
 	
