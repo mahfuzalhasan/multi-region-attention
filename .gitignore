@@ -1,0 +1,17 @@
+__pycache__/*
+*/__pycache__/*
+*.pyc
+
+.vscode/*
+results/*
+data/*
+pretrained/*
+output/*
+
+
+=======
+
+# mzaman
+Config/*
+*.slurm
+slurm_logs*/
