@@ -1,7 +1,8 @@
 # multi-region-attention
 
 
-
+[Architecture](./docs/markdowns/architecture.md)
+[Multiscale Attention](./docs/markdowns/multiscale_attention.md)
 
 
 
