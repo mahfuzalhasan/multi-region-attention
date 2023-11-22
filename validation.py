@@ -19,31 +19,11 @@ import torchvision
 from torchvision import transforms
 from torchvision.utils import save_image
 
-## Dataset-specific imports
-# from config import config
-from config_cityscapes import config
-from eval import SegEvaluator
-# from dataloader.dataloader import get_train_loader
-
-from models.builder import EncoderDecoder as segmodel
-# from dataloader.RGBXDataset import RGBXDataset
-
-
-from utils.init_func import init_weight, group_weight
-from utils.lr_policy import WarmUpPolyLR
-from engine.engine import Engine
-from engine.logger import get_logger
-from utils.pyt_utils import all_reduce_tensor
+from configs.config_cityscapes import config
 from utils.metric import cal_mean_iou, hist_info, compute_score
 
-from tensorboardX import SummaryWriter
-
-
-import torch.multiprocessing
-torch.multiprocessing.set_sharing_strategy('file_system')
-
 def compute_metric(results):
-    hist = np.zeros((config.num_classes, config.num_classes))
+    hist = np.zeros((config.DATASET.num_classes, config.DATASET.num_classes))
     correct = 0
     labeled = 0
     count = 0
@@ -98,7 +78,7 @@ def val_cityscape(epoch, val_loader, model):
             
             pred = pred.detach().cpu().numpy()
             gts = gts[0].detach().cpu().numpy() #1, H, W --> H, W
-            confusionMatrix, labeled, correct = hist_info(config.num_classes, pred, gts)
+            confusionMatrix, labeled, correct = hist_info(config.DATASET.num_classes, pred, gts)
             results_dict = {'hist': confusionMatrix, 'labeled': labeled, 'correct': correct}
             all_results.append(results_dict)
             # if idx==2:
@@ -114,7 +94,7 @@ def val_cityscape(epoch, val_loader, model):
             #         + ' loss=%.4f total_loss=%.4f' % (loss, (sum_loss / (idx + 1)))+'\n'
 
             del loss
-            if idx % config.val_print_stats == 0:
+            if idx % config.EVAL.val_print_stats == 0:
                 #pbar.set_description(print_str, refresh=True)
                 print(f'sample {idx}')
 
