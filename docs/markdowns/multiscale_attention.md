@@ -1,3 +1,3 @@
 
 
-[Multiscale Attention](./images/multiscale_attention.png)
+![Multiscale Attention](../images/multiscale_attention.png)
