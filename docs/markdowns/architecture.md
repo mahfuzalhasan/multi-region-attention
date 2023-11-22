@@ -1,3 +1,3 @@
-![Model Architecture](./images/model_architecture.png)
+![Model Architecture](../images/model_architecture.png)
 
 
