@@ -14,18 +14,18 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import multiprocessing as mp
 
-from config_cityscapes import config
+# from configs.config_cityscapes import config
 from utils.pyt_utils import ensure_dir
 from utils.visualize import print_iou, show_img
-from engine.evaluator import Evaluator      # *REMOVE*
-from engine.logger import get_logger        # *REPLACE with new logger*
+# from engine.evaluator import Evaluator      # *REMOVE*
+from utils.logger import get_logger        # *REPLACE with new logger*
 from utils.metric import hist_info, compute_score
 from utils.pyt_utils import load_model, ensure_dir
 from utils.transforms import pad_image_to_shape
 
 from models.builder import EncoderDecoder as segmodel
 
-from dataloader.cfg_defaults import get_cfg_defaults
+# from dataloader.cfg_defaults import get_cfg_defaults
 from dataloader.cityscapes_dataloader import CityscapesDataset
 
 import torch.multiprocessing
@@ -145,9 +145,8 @@ class SegEvaluator(object):
         img = torch.permute(img, (1, 2, 0))
         img = img.detach().cpu().numpy()
         label = label.detach().cpu().numpy()
-
-        pred = self.sliding_eval(img, config.eval_crop_size, config.eval_stride_rate, device)
-        hist_tmp, labeled_tmp, correct_tmp = hist_info(config.num_classes, pred, label)
+        pred = self.sliding_eval(img, config.EVAL.eval_crop_size, config.EVAL.eval_stride_rate, device)
+        hist_tmp, labeled_tmp, correct_tmp = hist_info(config.DATASET.num_classes, pred, label)
         results_dict = {'hist': hist_tmp, 'labeled': labeled_tmp, 'correct': correct_tmp}
 
         if self.save_path is not None:
@@ -288,7 +287,7 @@ class SegEvaluator(object):
     
     def compute_metric(self, results):
         ''' computes metrics over results'''
-        hist = np.zeros((config.num_classes, config.num_classes))
+        hist = np.zeros((config.DATASET.num_classes, config.DATASET.num_classes))
         correct = 0
         labeled = 0
         count = 0
@@ -313,13 +312,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config_filename = args.config.split('/')[-1].split('.')[0] 
     
-    if config_filename == 'configs_cityscapes':
+    if config_filename == 'config_cityscapes':
         from configs.config_cityscapes import config
     else:
         raise NotImplementedError
 
-    print(f'config:{config}')
-
+    # print(f'config:{config}')
+    # exit()
     logger = get_logger()
 
     os.environ['MASTER_PORT'] = '169710'
@@ -329,7 +328,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cudnn.benchmark = True
-    seed = config.seed
+    seed = config.SYSTEM.seed
 
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -340,21 +339,23 @@ if __name__ == "__main__":
     # loading our config file here on --------------------
     network = segmodel(cfg=config, criterion=None, norm_layer=nn.BatchNorm2d)
 
-    all_devices = config.device_ids
+    all_devices = config.SYSTEM.device_ids
 
     with torch.no_grad():
-        segmentor = SegEvaluator(dataset, config.num_classes, config.norm_mean,
-                                 config.norm_std, network,
-                                 config.eval_scale_array, config.eval_flip,
+        segmentor = SegEvaluator(dataset, config.DATASET.num_classes, 
+                                config.DATASET.norm_mean,
+                                config.DATASET.norm_std, network,
+                                config.EVAL.eval_scale_array, 
+                                config.EVAL.eval_flip,
                                  all_devices, verbose=False, save_path=None,
                                  show_image = False)
-        saved_model_path = config.checkpoint_dir
+        saved_model_path = config.WRITE.checkpoint_dir
         saved_model_names = ["model_435_11-06-23_0957.pth", "model_495_11-06-23_0957.pth"]
         # saved_model_names = ["model_230_attn_merge_mhms_11-01-23_1037.pth"]
         
         for i in range(len(saved_model_names)):
             name = saved_model_names[i][:saved_model_names[i].rindex('.')]+'.log'
-            log_file = os.path.join(config.log_dir, name)
+            log_file = os.path.join(config.WRITE.log_dir, name)
             print('## ----------log file is ', log_file)
             print(f" ####### \n Testing with model {saved_model_names[i]} \n #######")
             segmentor.run(saved_model_path, saved_model_names[i], log_file)
