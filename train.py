@@ -16,7 +16,6 @@ from torch.nn.parallel import DistributedDataParallel, DataParallel
 
 
 
-from configs.config_cityscapes import config
 from models.builder import EncoderDecoder as segmodel
 
 from dataloader.cityscapes_dataloader import CityscapesDataset
@@ -173,5 +172,17 @@ def save_model(model, optimizer, epoch, run_id, checkpoint_dir):
     
 
 if __name__=='__main__':
+    parser = argparse.ArgumentParser(description='PyTorch Segformer Training')
+    parser.add_argument('config', help='dataset specific train config file path, more details can be found in configs/')
+
+    args = parser.parse_args()
+    config_filename = args.config.split('/')[-1].split('.')[0] 
+    
+    if config_filename == 'configs_cityscapes':
+        from configs.config_cityscapes import config
+    else:
+        raise NotImplementedError
+
+    print(f'config:{config}')
     os.environ['MASTER_PORT'] = '169710'
     Main()
