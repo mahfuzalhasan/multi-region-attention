@@ -1,0 +1,13 @@
+
+-- create:
+    kubectl apply -f .\train_pod.yaml
+
+-- get into bash:
+    kubectl exec -it job-name -- /bin/bash
+
+-- get:
+    kubectl get pods
+    kubectl get pvc    
+
+-- delete: 
+    kubectl delete job my-job

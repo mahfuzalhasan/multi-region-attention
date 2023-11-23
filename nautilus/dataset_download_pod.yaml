@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: download-pod
+spec:
+  containers:
+  - name: download-pod
+    image: ubuntu
+    volumeMounts:
+    - mountPath: /project
+      name: segmentation-project-vol
+    resources:
+      limits:
+        memory: 32Gi
+        cpu: "4"
+      requests:
+        memory: 32Gi
+        cpu: "4"
+    command: 
+      - "sh"
+      - "-c"
+      - |
+        apt update && \
+        apt install -y wget unzip && \
+        sleep infinity
+
+  volumes:
+    - name: segmentation-project-vol
+      persistentVolumeClaim:
+        claimName: segmentation-project-vol
+
+
+# Download links:
+# ADE20K -- http://groups.csail.mit.edu/vision/datasets/ADE20K/syml/jawadefaj_3a74f768.zip
+# CITYSCAPES (gtFine_trainvaltest.zip) -- https://www.cityscapes-dataset.com/file-handling/?packageID=1
+# CITYSCAPES (leftImg8bit_trainvaltest.zip) -- https://www.cityscapes-dataset.com/file-handling/?packageID=3
+
+
+# Download commands:
+# wget -P /project 'http://groups.csail.mit.edu/vision/datasets/ADE20K/syml/jawadefaj_674ec4aa.zip' && \
+# wget -P /project/cityscapes/gt_Fine 'https://www.cityscapes-dataset.com/file-handling/?packageID=1' && \
+# wget -P /project/cityscapes/leftImg8bit 'https://www.cityscapes-dataset.com/file-handling/?packageID=3' && \
+
+
+# Unzip commands:
+# unzip /project/data/ade20k/jawadefaj_3a74f768.zip -d /project/ade20k && \
+# unzip /project/data/cityscapes/gt_Fine/gtFine_trainvaltest.zip -d /project/cityscapes/gt_Fine && \
+# unzip /project/data/cityscapes/gt_Fine/gtFine_trainvaltest.zip -d /project/cityscapes/gt_Fine && \
+
+

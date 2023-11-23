@@ -1,0 +1,71 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: segmentation-job
+spec:
+  template:
+    spec:
+      containers:
+        - name: gpu-container
+          image: ubuntu
+          volumeMounts:
+            - name: segmentation-project-vol
+              mountPath: /project
+          resources:
+            limits:
+              memory: "8Gi"
+              cpu: "4"
+              nvidia.com/gpu: "2"
+            requests:
+              memory: "8Gi"
+              cpu: "4"
+              nvidia.com/gpu: "2"
+          command:
+            - "sh"
+            - "-c"
+            - |
+              apt update && \
+              apt install -y git python3-pip && \
+              cd /opt/repo/multi-region-attention && \
+              pip3 install -r requirements.txt && \ 
+              echo 'Commands executed successfully.' && \
+              
+              sleep infinity
+      initContainers:
+        - name: init-clone-repo
+          image: alpine/git
+          args:
+            - clone
+            - --single-branch
+            - https://github.com/mahfuzalhasan/multi-region-attention
+            - /opt/repo/multi-region-attention
+          volumeMounts:
+            - name: git-repo
+              mountPath: /opt/repo
+      volumes:
+      - name: git-repo
+        emptyDir: {}
+      - name: segmentation-project-vol
+        persistentVolumeClaim:
+          claimName: segmentation-project-vol
+      restartPolicy: Never
+  backoffLimit: 1
+
+
+
+# https://$(jawadefaj):$(-----)@$(mahfuzalhasan/multi-region-attention)
+# - https://$(GIT_USERNAME):$(GIT_PASSWORD)@gitlab.nrp-nautilus.io/bbateni/map-genration-mingpt-job
+# - sh
+# - -c
+# - >
+#   apt update &&
+#   apt install -y git python3-pip &&
+#   git clone https://github.com/mahfuzalhasan/multi-region-attention.git /opt/repo/multi-region-attention &&
+#   cd /project &&
+#   mkdir models &&
+#   cd /opt/repo/multi-region-attention &&
+#   pip3 install -r requirements.txt &&
+#   cp -r models/* /project/models-pv/
+
+# cd /opt/repo/multi-region-attention && \
+# pip3 install -r requirements.txt && \
