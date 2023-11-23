@@ -19,7 +19,7 @@ from torch.nn.parallel import DistributedDataParallel, DataParallel
 from models.builder import EncoderDecoder as segmodel
 
 from dataloader.cityscapes_dataloader import CityscapesDataset
-from validation import val_cityscape
+from validation import validation
 
 from utils.init_func import init_weight, group_weight
 from utils.lr_policy import WarmUpPolyLR, PolyLR
@@ -153,7 +153,7 @@ def Main():
             save_model(model, optimizer, epoch, run_id, config.WRITE.checkpoint_dir)
         
         # compute val metrics
-        val_loss, val_mean_iou = val_cityscape(epoch, val_loader, model)            
+        val_loss, val_mean_iou = validation(epoch, val_loader, model, config)            
         writer.add_scalar('val_loss', val_loss, epoch)
         writer.add_scalar('val_mIOU', val_mean_iou, epoch)
         # print(f't_loss:{train_loss:.4f} v_loss:{val_loss:.4f} val_mIOU:{val_mean_iou:.4f}')
@@ -178,7 +178,7 @@ if __name__=='__main__':
     args = parser.parse_args()
     config_filename = args.config.split('/')[-1].split('.')[0] 
     
-    if config_filename == 'configs_cityscapes':
+    if config_filename == 'config_cityscapes':
         from configs.config_cityscapes import config
     else:
         raise NotImplementedError

@@ -10,7 +10,7 @@ import logging
 
 from utils import pyt_utils
 
-_default_level_name = os.getenv('ENGINE_LOGGING_LEVEL', 'INFO')
+_default_level_name = os.getenv('ENGINE_LOGGING_LEVEL', 'WARN')
 _default_level = logging.getLevelName(_default_level_name.upper())
 
 

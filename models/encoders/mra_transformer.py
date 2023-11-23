@@ -3,7 +3,7 @@ import math
 import time
 import torch
 import torch.nn as nn
-from mra_helper import OverlapPatchEmbed, Block
+from .mra_helper import OverlapPatchEmbed, Block
 
 from timm.models.layers import trunc_normal_
 from functools import partial

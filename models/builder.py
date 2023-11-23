@@ -16,55 +16,58 @@ class EncoderDecoder(nn.Module):
         self.norm_layer = norm_layer
         self.test = test
 
-        logger = get_logger()
+        self.logger = get_logger()
         # import backbone and decoder
-        if cfg.backbone == 'mit_b0':
-            logger.info('Using backbone: Segformer-B0')
+        if cfg.MODEL.backbone == 'mit_b0':
+            self.logger.info('Using backbone: Segformer-B0')
             self.channels = [32, 64, 160, 256]    # keep this must why???
             from .encoders.mra_transformer import mit_b0 as backbone
             self.backbone = backbone(norm_fuse=norm_layer)
         
-        elif cfg.backbone == 'mit_b1':
-            logger.info('Using backbone: Segformer-B1')
+        elif cfg.MODEL.backbone == 'mit_b1':
+            self.logger.info('Using backbone: Segformer-B1')
             from .encoders.mra_transformer import mit_b1 as backbone
             self.backbone = backbone(norm_fuse=norm_layer)
         
-        elif cfg.backbone == 'mit_b2':
-            logger.info('Using backbone: Segformer-B2')
+        elif cfg.MODEL.backbone == 'mit_b2':
+            self.logger.info('Using backbone: Segformer-B2')
             from .encoders.mra_transformer import mit_b2 as backbone
             self.backbone = backbone(norm_fuse=norm_layer)
         
-        elif cfg.backbone == 'mit_b3':
-            logger.info('Using backbone: Segformer-B3')
+        elif cfg.MODEL.backbone == 'mit_b3':
+            self.logger.info('Using backbone: Segformer-B3')
             from .encoders.mra_transformer import mit_b3 as backbone
             self.backbone = backbone(norm_fuse=norm_layer)
         
-        elif cfg.backbone == 'mit_b4':
-            logger.info('Using backbone: Segformer-B4')
+        elif cfg.MODEL.backbone == 'mit_b4':
+            self.logger.info('Using backbone: Segformer-B4')
             from .encoders.mra_transformer import mit_b4 as backbone
             self.backbone = backbone(norm_fuse=norm_layer)
         
-        elif cfg.backbone == 'mit_b5':
-            logger.info('Using backbone: Segformer-B5')
+        elif cfg.MODEL.backbone == 'mit_b5':
+            self.logger.info('Using backbone: Segformer-B5')
             from .encoders.mra_transformer import mit_b5 as backbone
             self.backbone = backbone(norm_fuse=norm_layer)
         
         else:
-            logger.error('Backbone not found!!! Currently only support mit_b0 - mit_b5')
+            self.logger.error('Backbone not found!!! Currently only support mit_b0 - mit_b5')
 
         self.aux_head = None
 
-        if cfg.decoder == 'MLPDecoder':
-            logger.info('Using MLP Decoder')
+        if cfg.MODEL.decoder == 'MLPDecoder':
+            self.logger.info('Using MLP Decoder')
             from .decoders.MLPDecoder import DecoderHead
-            self.decode_head = DecoderHead(in_channels=self.channels, num_classes=cfg.num_classes, norm_layer=norm_layer, embed_dim=cfg.decoder_embed_dim)
+            self.decode_head = DecoderHead(in_channels=self.channels, 
+                                        num_classes=cfg.DATASET.num_classes, 
+                                        norm_layer=norm_layer, 
+                                        embed_dim=cfg.MODEL.decoder_embed_dim)
         else:
-            logger.error('Decoder not found!!! Currently only support MLPDecoder')
+            self.logger.error('Decoder not found!!! Currently only support MLPDecoder')
         
 
         self.criterion = criterion
         if self.criterion and not self.test:
-            self.init_weights(cfg, pretrained=cfg.pretrained_model)
+            self.init_weights(cfg, pretrained=cfg.MODEL.pretrained_model)
     
     def init_weights(self, cfg, pretrained=None):
         if pretrained:
@@ -72,11 +75,11 @@ class EncoderDecoder(nn.Module):
             self.backbone.init_weights(pretrained=pretrained)
         self.logger.info('Initing weights ...')
         init_weight(self.decode_head, nn.init.kaiming_normal_,
-                self.norm_layer, cfg.bn_eps, cfg.bn_momentum,
+                self.norm_layer, cfg.TRAIN.bn_eps, cfg.TRAIN.bn_momentum,
                 mode='fan_in', nonlinearity='relu')
         if self.aux_head:
             init_weight(self.aux_head, nn.init.kaiming_normal_,
-                self.norm_layer, cfg.bn_eps, cfg.bn_momentum,
+                self.norm_layer, cfg.TRAIN.bn_eps, cfg.TRAIN.bn_momentum,
                 mode='fan_in', nonlinearity='relu')
 
     def encode_decode(self, rgb):
