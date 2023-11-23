@@ -183,6 +183,5 @@ if __name__=='__main__':
     else:
         raise NotImplementedError
 
-    print(f'config:{config}')
     os.environ['MASTER_PORT'] = '169710'
     Main()

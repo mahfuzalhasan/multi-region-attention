@@ -137,8 +137,8 @@ def val_ade(epoch, val_loader, model, config):
     
 def validation(epoch, val_loader, model, config):
     if config.DATASET.name == 'cityscapes':
-        return val_cityscape(epoch, val_loader, model)
+        return val_cityscape(epoch, val_loader, model, config)
     elif config.DATASET.name == 'ade20k':
-        return val_ade(epoch, val_loader, model)
+        return val_ade(epoch, val_loader, model, config)
     else:
         raise NotImplementedError(f'Not yet supported {config.DATASET.name}')
