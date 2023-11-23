@@ -306,17 +306,19 @@ class SegEvaluator(object):
         return result_line, result_dict
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Test cityscapes Loader")
-    parser.add_argument('config_file', help='config file path')
-    parser.add_argument("opts", help="Modify config options using the command-line", default=None, nargs=argparse.REMAINDER)
-    
+
+    parser = argparse.ArgumentParser(description='PyTorch Segformer Training')
+    parser.add_argument('config', help='dataset specific train config file path, more details can be found in configs/')
+
     args = parser.parse_args()
-    print(args.opts)
-    cfg = get_cfg_defaults()
-    cfg.merge_from_file(args.config_file) # dataloader/cityscapes_rgbd_config.yaml
-    cfg.merge_from_list(args.opts)
-    cfg.freeze()
-    print(cfg)
+    config_filename = args.config.split('/')[-1].split('.')[0] 
+    
+    if config_filename == 'configs_cityscapes':
+        from configs.config_cityscapes import config
+    else:
+        raise NotImplementedError
+
+    print(f'config:{config}')
 
     logger = get_logger()
 
@@ -333,7 +335,7 @@ if __name__ == "__main__":
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
 
-    dataset = CityscapesDataset(cfg, split='val')
+    dataset = CityscapesDataset(config, split='val')
     
     # loading our config file here on --------------------
     network = segmodel(cfg=config, criterion=None, norm_layer=nn.BatchNorm2d)
