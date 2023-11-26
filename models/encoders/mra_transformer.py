@@ -174,6 +174,24 @@ class MRATransformer(nn.Module):
         out = self.forward_features(x_rgb)
         return out
 
+    def flops(self):
+        flops = 0
+        flops += self.patch_embed1.flops()
+        flops += self.patch_embed2.flops()
+        flops += self.patch_embed3.flops()
+        flops += self.patch_embed4.flops()
+
+        for i, blk in enumerate(self.block1):
+            flops += blk.flops()
+        for i, blk in enumerate(self.block2):
+            flops += blk.flops()
+        for i, blk in enumerate(self.block3):
+            flops += blk.flops()
+        for i, blk in enumerate(self.block4):
+            flops += blk.flops()
+        
+        return flops
+
 
 
 

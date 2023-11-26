@@ -24,7 +24,7 @@ def get_relative_position_index(win_h: int, win_w: int) -> torch.Tensor:
     relative_coords[:, :, 0] *= 2 * win_w - 1
     return relative_coords.sum(-1)
 
-# ms_attention = MultiScaleAttention(512, num_heads=8, sr_ratio=8, local_region_shape=[2, 2, 2, 2, 1, 1, 1, 1])
+
 
 class MultiScaleAttention(nn.Module):
     def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., 
@@ -183,6 +183,8 @@ class MultiScaleAttention(nn.Module):
 
     def forward(self, x, H, W):
         #####print('!!!!!!!!!!!!attention head: ',self.num_heads, ' !!!!!!!!!!')
+        self.H=H
+        self.W=W
         A = []
         B, N, C = x.shape
         
@@ -241,6 +243,33 @@ class MultiScaleAttention(nn.Module):
         attn_fused = self.proj_drop(attn_fused )
         return attn_fused
 
+    def flops(self):
+        # FLOPs for linear layers
+        flops_linear_q = 2 * self.dim * self.dim
+        flops_linear_kv = 2 * self.dim * self.dim * 2
+        head_dim = self.dim // self.num_heads
+        flops = 0
+        print("number of heads ", self.num_heads)
+        for i in range(self.num_heads):
+            r_size = self.local_region_shape[i]
+            if r_size == 1:
+                N = self.H * self.W
+                flops_attention_weight = N * head_dim * N
+                flops_attention_output = N * N * head_dim
+
+            else:
+                region_number = (self.H * self.W) // (r_size ** 2)
+                p = r_size ** 2
+                flops_attention_weight = region_number * (p * head_dim * p)
+                flops_attention_output = region_number * (p * p * head_dim)
+            flops_head = flops_attention_weight + flops_attention_output
+            flops += flops_head    
+
+        total_flops = flops_linear_q + flops_linear_kv + flops
+        return total_flops
+
+
+        
 if __name__=="__main__":
     # #######print(backbone)
     B = 4
