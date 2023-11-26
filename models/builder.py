@@ -15,39 +15,40 @@ class EncoderDecoder(nn.Module):
         self.channels = [64, 128, 320, 512]
         self.norm_layer = norm_layer
         self.test = test
-
+        self.input_size = (cfg.IMAGE.image_height, cfg.IMAGE.image_width)
+        # print('Builder input: ',self.input_size)
         self.logger = get_logger()
         # import backbone and decoder
         if cfg.MODEL.backbone == 'mit_b0':
             self.logger.info('Using backbone: Segformer-B0')
             self.channels = [32, 64, 160, 256]    # keep this must why???
             from .encoders.mra_transformer import mit_b0 as backbone
-            self.backbone = backbone(norm_fuse=norm_layer)
+            self.backbone = backbone(img_size=self.input_size, norm_fuse=norm_layer)
         
         elif cfg.MODEL.backbone == 'mit_b1':
             self.logger.info('Using backbone: Segformer-B1')
             from .encoders.mra_transformer import mit_b1 as backbone
-            self.backbone = backbone(norm_fuse=norm_layer)
+            self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
         
         elif cfg.MODEL.backbone == 'mit_b2':
             self.logger.info('Using backbone: Segformer-B2')
             from .encoders.mra_transformer import mit_b2 as backbone
-            self.backbone = backbone(norm_fuse=norm_layer)
+            self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
         
         elif cfg.MODEL.backbone == 'mit_b3':
             self.logger.info('Using backbone: Segformer-B3')
             from .encoders.mra_transformer import mit_b3 as backbone
-            self.backbone = backbone(norm_fuse=norm_layer)
+            self.backbone = backbonebackbone(img_size=self.input_size, norm_fuse=norm_layer)
         
         elif cfg.MODEL.backbone == 'mit_b4':
             self.logger.info('Using backbone: Segformer-B4')
             from .encoders.mra_transformer import mit_b4 as backbone
-            self.backbone = backbone(norm_fuse=norm_layer)
+            self.backbone = backbonebackbone(img_size=self.input_size, norm_fuse=norm_layer)
         
         elif cfg.MODEL.backbone == 'mit_b5':
             self.logger.info('Using backbone: Segformer-B5')
             from .encoders.mra_transformer import mit_b5 as backbone
-            self.backbone = backbone(norm_fuse=norm_layer)
+            self.backbone = backbone(img_size=self.input_size, norm_fuse=norm_layer)
         
         else:
             self.logger.error('Backbone not found!!! Currently only support mit_b0 - mit_b5')

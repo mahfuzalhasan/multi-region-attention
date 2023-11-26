@@ -57,18 +57,19 @@ class MultiScaleAttention(nn.Module):
             small_patch = unique_vals[i]    # 4
             large_patch = unique_vals[i+1] # 8
 
-            #print(small_patch, large_patch)
+            # print(small_patch, large_patch)
 
             in_channel, out_channel = self.proj_channel_conv(small_patch, large_patch)
 
             c_p = nn.Conv2d(in_channel, out_channel, 1)
+            # print('######### cp: ########### ',c_p)
 
             corr_projections.append(c_p)
 
         self.corr_projections = nn.ModuleList(corr_projections)
 
-        #print('corr_proj convs: ',self.corr_projections)
-            
+        # print('corr_proj convs: ',self.corr_projections)
+        # exit()
         self.sr_ratio = sr_ratio
         if sr_ratio > 1:
             self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
@@ -77,14 +78,15 @@ class MultiScaleAttention(nn.Module):
 
     def proj_channel_conv(self, small_patch, large_patch):
         N = self.img_size[0] * self.img_size[1]   # (1024 = 32 x 32)
+        # print('N: ',N)
 
         N_small_patch = N // (small_patch ** 2)     # 64
         N_large_patch = N // (large_patch ** 2)     # 16
 
-        #print('Ns, Nl: ',N_small_patch, N_large_patch)
+        # print('Ns, Nl: ',N_small_patch, N_large_patch)
         ratio = (large_patch ** 2) // (small_patch ** 2)    # 4
 
-        #print('ratio: ',ratio)
+        # print('ratio: ',ratio)
 
         # sa = (B, 1, 64, 16 ,16)
         # ba = (B, 1, 16, 64 ,64)
@@ -96,7 +98,7 @@ class MultiScaleAttention(nn.Module):
 
         reduced_patch = N_small_patch // (ratio**2)   
 
-        #print('red: ',reduced_patch)  
+        # print('red: ',reduced_patch)  
         
         in_channel = reduced_patch + N_large_patch
         return in_channel, N_large_patch
@@ -164,13 +166,15 @@ class MultiScaleAttention(nn.Module):
             _, _, _, Np_l, Np_l = correlation.shape             #B,1,16,64,64
             #print(f'large corr matrices:{correlation.shape} ')
             small_corr_matrix = small_corr_matrix.view(B, nh, -1, Np_l, Np_l) #B,1,4,64,64
-            #print(f'reshape small corr matrices:{small_corr_matrix.shape} ')
+            # print(f'reshape small corr matrices:{small_corr_matrix.shape} ')
+            # print(f'large corr matrices:{correlation.shape} ')
             correlation = torch.cat([correlation, small_corr_matrix],axis=2)#B,1,20,64,64
+            # print(f'concat both:{correlation.shape}')
             correlation = correlation.squeeze(dim=1)    #B,20,64,64
             #print(f'concat both:{correlation.shape} ')
             
             index = self.calc_index(self.local_region_shape[head_idx-1])
-            #print(f' index: {index}, layer:{self.corr_projections[index]}')
+            # print(f' index: {index}, layer:{self.corr_projections[index]}')
             correlation = self.corr_projections[index](correlation)#B,16,64,64
             correlation = correlation.unsqueeze(dim=1)  #B,1,16,64,64
 
@@ -214,6 +218,7 @@ class MultiScaleAttention(nn.Module):
                 
                 # B, Nh, N_patch, Np, Np    where Np = p^2, for whole image Np=N
                 correlation = (q_patch @ k_patch.transpose(-2, -1)) * self.scale
+                # print('corr: ',i, ': ',correlation.shape)
                 if len(self.correlation_matrices)>0:
                     correlation = self.merge_correlation_matrices(correlation, i)
                 self.correlation_matrices.append(correlation)

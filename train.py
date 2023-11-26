@@ -14,11 +14,10 @@ import torch.distributed as dist
 import torch.backends.cudnn as cudnn
 from torch.nn.parallel import DistributedDataParallel, DataParallel
 
-
-
 from models.builder import EncoderDecoder as segmodel
 
-from dataloader.cityscapes_dataloader import CityscapesDataset
+from dataloader.cityscapes.cityscapes_dataloader import CityscapesDataset
+from dataloader.ade.ade import ADE20KSegmentation
 from validation import validation
 
 from utils.init_func import init_weight, group_weight
@@ -33,24 +32,32 @@ sys.path.append(current_dir)
 # import torch.multiprocessing
 # torch.multiprocessing.set_sharing_strategy('file_system')
 
-def Main():
+def Main(args):
     run_id = datetime.today().strftime('%m-%d-%y_%H%M')
     print(f'$$$$$$$$$$$$$ run_id:{run_id} $$$$$$$$$$$$$')
 
-    cudnn.benchmark = True
-    seed = config.SYSTEM.seed
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
+    config_filename = args.config.split('/')[-1].split('.')[0] 
+    print('ocnfig_filename: ',config_filename)    
+    if config_filename == 'cityscapes':
+        # print('cityscapes')
+        from configs.config_cityscapes import config
+        train_dataset = CityscapesDataset(config, split='train')
+        val_dataset = CityscapesDataset(config, split='val')
+    elif config_filename == 'ade':
+        from configs.config_ade import config
+        root = config.DATASET.root
+        train_dataset = ADE20KSegmentation(root=root, split='train', mode='train')
+        val_dataset = ADE20KSegmentation(root=root, split='val', mode='val')
+    else:
+        raise NotImplementedError
 
 
-    cityscapes_train = CityscapesDataset(config, split='train')
-    train_loader = DataLoader(cityscapes_train, batch_size=config.TRAIN.batch_size, shuffle=True, num_workers=config.TRAIN.num_workers, drop_last=True)
-    print(f'total train: {len(cityscapes_train)} t_iteration:{len(train_loader)}')
+
+    train_loader = DataLoader(train_dataset, batch_size=config.TRAIN.batch_size, shuffle=True, num_workers=config.TRAIN.num_workers, drop_last=True)
+    print(f'total train: {len(train_dataset)} t_iteration:{len(train_loader)}')
     
-    cityscapes_val = CityscapesDataset(config, split='val')
-    val_loader = DataLoader(cityscapes_val, batch_size=1, shuffle=False, num_workers=config.TRAIN.num_workers)
-    print(f'total val: {len(cityscapes_val)} v_iteration:{len(val_loader)}')
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=config.TRAIN.num_workers)
+    print(f'total val: {len(val_dataset)} v_iteration:{len(val_loader)}')
     
 
     save_log = os.path.join(config.WRITE.log_dir, str(run_id))
@@ -58,6 +65,11 @@ def Main():
         os.makedirs(save_log)
     writer = SummaryWriter(save_log)
 
+    cudnn.benchmark = True
+    seed = config.SYSTEM.seed
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
 
     # config network and criterion
     criterion = nn.CrossEntropyLoss(reduction='mean', ignore_index=config.IMAGE.background)
@@ -113,7 +125,7 @@ def Main():
 
             # mean over multi-gpu result
             loss = torch.mean(loss) 
-            m_iou = cal_mean_iou(out, gts)
+            m_iou = cal_mean_iou(out, gts, config.IMAGE.background)
             m_iou_batches.append(m_iou)
             
             optimizer.zero_grad()
@@ -176,12 +188,6 @@ if __name__=='__main__':
     parser.add_argument('config', help='dataset specific train config file path, more details can be found in configs/')
 
     args = parser.parse_args()
-    config_filename = args.config.split('/')[-1].split('.')[0] 
-    
-    if config_filename == 'config_cityscapes':
-        from configs.config_cityscapes import config
-    else:
-        raise NotImplementedError
 
     os.environ['MASTER_PORT'] = '169710'
-    Main()
+    Main(args)

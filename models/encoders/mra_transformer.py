@@ -14,11 +14,12 @@ class MRATransformer(nn.Module):
     def __init__(self, img_size=(1024, 1024), patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512], 
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, norm_fuse=nn.BatchNorm2d,
-                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1]):
+                 depths=[3, 4, 6, 3], sr_ratios=[8,4,2,1]):
         super().__init__()
         self.num_classes = num_classes
         self.depths = depths
         self.logger = get_logger()
+        # print('img_size: ',img_size)
 
         # patch_embed
         self.patch_embed1 = OverlapPatchEmbed(patch_size=7, stride=4, in_chans=in_chans,
@@ -121,6 +122,7 @@ class MRATransformer(nn.Module):
         # stage 1
         x_rgb, H, W = self.patch_embed1(x_rgb)
         self.logger.info('Stage 1 - Tokenization: {}'.format(x_rgb.shape))
+        # print('Stage 1 - Output: {}'.format(x_rgb.shape))
 
         for blk in self.block1:
             x_rgb = blk(x_rgb, H, W)
@@ -128,6 +130,7 @@ class MRATransformer(nn.Module):
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         outs.append(x_rgb)
         self.logger.info('Stage 1 - Output: {}'.format(x_rgb.shape))
+        # print('Stage 1 - Output: {}'.format(x_rgb.shape))
 
         # stage 2
         x_rgb, H, W = self.patch_embed2(x_rgb)
@@ -177,27 +180,35 @@ class MRATransformer(nn.Module):
 
 class mit_b0(MRATransformer):
     def __init__(self, fuse_cfg=None, **kwargs):
+        img_size = (fuse_cfg.IMAGE.image_height, fuse_cfg.IMAGE.image_width)
+        heads = fuse_cfg.MODEL.heads
         super(mit_b0, self).__init__(
-            patch_size=4, embed_dims=[32, 64, 160, 256], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
-            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
+            img_size = img_size, patch_size=4, embed_dims=[32, 64, 160, 256], 
+            num_heads=heads, mlp_ratios=[4, 4, 4, 4],qkv_bias=True, 
+            norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], 
             drop_rate=0.0, drop_path_rate=0.1)
 
 
 class mit_b1(MRATransformer):
     def __init__(self, fuse_cfg=None, **kwargs):
+        img_size = (fuse_cfg.IMAGE.image_height, fuse_cfg.IMAGE.image_width)
+        heads = fuse_cfg.MODEL.heads
         super(mit_b1, self).__init__(
-            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
-            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
+            img_size = img_size, patch_size=4, embed_dims=[64, 128, 320, 512], 
+            num_heads=heads, mlp_ratios=[4, 4, 4, 4], qkv_bias=True, 
+            norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2],
             drop_rate=0.0, drop_path_rate=0.1)
 
 
 class mit_b2(MRATransformer):
     def __init__(self, fuse_cfg=None, **kwargs):
+        img_size = (fuse_cfg.IMAGE.image_height, fuse_cfg.IMAGE.image_width)
+        heads = fuse_cfg.MODEL.heads
         super(mit_b2, self).__init__(
-            img_size=(1024, 1024), patch_size=4, embed_dims=[64, 128, 320, 512], 
-            num_heads=[2, 4, 5, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=True, 
+            img_size=img_size, patch_size=4, embed_dims=[64, 128, 320, 512], 
+            num_heads=heads, mlp_ratios=[4, 4, 4, 4], qkv_bias=True, 
             norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], 
-            sr_ratios=[8, 4, 2, 1], drop_rate=0.0, drop_path_rate=0.1)
+            drop_rate=0.0, drop_path_rate=0.1)
 
 
 class mit_b3(MRATransformer):
@@ -224,3 +235,17 @@ class mit_b5(MRATransformer):
             drop_rate=0.0, drop_path_rate=0.1)
 
 
+if __name__=="__main__":
+    backbone = mit_b2(norm_layer = nn.BatchNorm2d)
+    
+    # ########print(backbone)
+    B = 4
+    C = 3
+    H = 512
+    W = 512
+    device = 'cuda:1'
+    rgb = torch.randn(B, C, H, W)
+    x = torch.randn(B, C, H, W)
+    outputs = backbone(rgb)
+    for output in outputs:
+        print(output.size())

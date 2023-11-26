@@ -15,7 +15,7 @@ import torch
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dataloader.cityscapes_dataloader_utils.SampleLoader import SampleLoader
+from dataloader.cityscapes.cityscapes_dataloader_utils.SampleLoader import SampleLoader
 
 class CityscapesDataset(data.Dataset):
     def __init__(self, cfg, split="train"):
@@ -40,7 +40,7 @@ class CityscapesDataset(data.Dataset):
 
         # 'troisdorf_000000_000073' is corrupted
         self.files[split] = [x for x in self.recursive_glob(rootdir=self.images_base, suffix='.png') if 'troisdorf_000000_000073' not in x]
-        self.files[split] = self.files[split][:100]
+        # self.files[split] = self.files[split][:20]
         if not self.files[split]:
             raise Exception("No files for split=[%s] found in %s" % (split, self.images_base))
 
