@@ -43,6 +43,6 @@ To see the underlying mechanism for Multiscale Attention, go to [Multiscale Atte
 1. Clone the project using git clone https://github.com/mahfuzalhasan/multi-region-attention.git
 2. Run setup.py to install all the required libraries
 3. Modify the config file to change the model parameters and hyperparameters.
-4. Run train.py with the specific config (example: python train.py configs/config_cityscape.py) 
+4. Run train.py with the specific dataset name (example: python train.py cityscapes) 
 
 	
