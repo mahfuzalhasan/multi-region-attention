@@ -1,7 +1,42 @@
 # Multi-region-attention
 
-To see the details of the model architecture, go to [Architecture](./docs/markdowns/architecture.md)
-To see the underlying mechanism for Multiscale Attention, go to [Multiscale Attention](./docs/markdowns/multiscale_attention.md)
+Our model architecture is illustrated and briefly described -->  [Architecture](./docs/markdowns/architecture.md)
+
+A closer look at Multiscale Region Attention --> [Multiscale Attention](./docs/markdowns/multiscale_attention.md)
+
+
+
+### Setup
+
+1. Clone the project using *git*
+    ```
+    git clone https://github.com/mahfuzalhasan/multi-region-attention.git
+    ``````
+2. Run *setup.py* to install all the required libraries
+
+
+
+### Training
+3. Browse the config files (~/configs/*) to tune the dataset-specific hyperparameters and system-specific settings (eg no of GPUs to use).
+4. Run train.py followed by the name of a specific dataset (example: python train.py cityscapes)
+    ```
+    python train.py <dataset-name>
+    ```
+    eg: For training on Cityscapes:
+    ```
+ 	python train.py cityscapes
+    ```
+ 	
+    For training on ADE20k:
+    ```
+ 	python train.py ade
+    ```
+
+### Validation
+5. Include desired model path in *multiscale_evaluation.py* and run:
+    ```
+    python multiscale_evaluation.py
+    ``` 
 
 
 
@@ -37,12 +72,4 @@ To see the underlying mechanism for Multiscale Attention, go to [Multiscale Atte
 ├── README.md          <- The top-level README for developers using this project.
 ```
 
-
-# How to run
-
-1. Clone the project using git clone https://github.com/mahfuzalhasan/multi-region-attention.git
-2. Run setup.py to install all the required libraries
-3. Modify the config file to change the model parameters and hyperparameters.
-4. Run train.py with the specific dataset name (example: python train.py cityscapes) 
-
-	
+---
