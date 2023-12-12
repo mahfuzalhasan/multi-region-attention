@@ -193,6 +193,9 @@ class MRATransformer(nn.Module):
         return flops
 
 
+
+
+
 class mit_b0(MRATransformer):
     def __init__(self, fuse_cfg=None, **kwargs):
         img_size = (fuse_cfg.IMAGE.image_height, fuse_cfg.IMAGE.image_width)
