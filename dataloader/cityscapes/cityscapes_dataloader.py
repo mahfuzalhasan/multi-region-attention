@@ -36,11 +36,11 @@ class CityscapesDataset(data.Dataset):
 
 
         self.depth_base = os.path.join(self.root, cfg.DATASET.depth_dir, self.split)  # {}{}'.format(split, year))
-
-
+        
         # 'troisdorf_000000_000073' is corrupted
         self.files[split] = [x for x in self.recursive_glob(rootdir=self.images_base, suffix='.png') if 'troisdorf_000000_000073' not in x]
         # self.files[split] = self.files[split][:20]
+        
         if not self.files[split]:
             raise Exception("No files for split=[%s] found in %s" % (split, self.images_base))
 

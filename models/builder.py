@@ -23,7 +23,7 @@ class EncoderDecoder(nn.Module):
             self.logger.info('Using backbone: Segformer-B0')
             self.channels = [32, 64, 160, 256]    # keep this must why???
             from .encoders.mra_transformer import mit_b0 as backbone
-            self.backbone = backbone(img_size=self.input_size, norm_fuse=norm_layer)
+            self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
         
         elif cfg.MODEL.backbone == 'mit_b1':
             self.logger.info('Using backbone: Segformer-B1')

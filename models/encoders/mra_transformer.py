@@ -14,7 +14,7 @@ class MRATransformer(nn.Module):
     def __init__(self, img_size=(1024, 1024), patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512], 
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, norm_fuse=nn.BatchNorm2d,
-                 depths=[3, 4, 6, 3], sr_ratios=[8,4,2,1]):
+                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1]):
         super().__init__()
         self.num_classes = num_classes
         self.depths = depths
@@ -175,9 +175,6 @@ class MRATransformer(nn.Module):
         return out
 
 
-
-
-
 class mit_b0(MRATransformer):
     def __init__(self, fuse_cfg=None, **kwargs):
         img_size = (fuse_cfg.IMAGE.image_height, fuse_cfg.IMAGE.image_width)
@@ -211,28 +208,28 @@ class mit_b2(MRATransformer):
             drop_rate=0.0, drop_path_rate=0.1)
 
 
-class mit_b3(MRATransformer):
-    def __init__(self, fuse_cfg=None, **kwargs):
-        super(mit_b3, self).__init__(
-            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
-            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 18, 3], sr_ratios=[8, 4, 2, 1],
-            drop_rate=0.0, drop_path_rate=0.1)
+# class mit_b3(MRATransformer):
+#     def __init__(self, fuse_cfg=None, **kwargs):
+#         super(mit_b3, self).__init__(
+#             patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
+#             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 18, 3], sr_ratios=[8, 4, 2, 1],
+#             drop_rate=0.0, drop_path_rate=0.1)
 
 
-class mit_b4(MRATransformer):
-    def __init__(self, fuse_cfg=None, **kwargs):
-        super(mit_b4, self).__init__(
-            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
-            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 8, 27, 3], sr_ratios=[8, 4, 2, 1],
-            drop_rate=0.0, drop_path_rate=0.1)
+# class mit_b4(MRATransformer):
+#     def __init__(self, fuse_cfg=None, **kwargs):
+#         super(mit_b4, self).__init__(
+#             patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
+#             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 8, 27, 3], sr_ratios=[8, 4, 2, 1],
+#             drop_rate=0.0, drop_path_rate=0.1)
 
 
-class mit_b5(MRATransformer):
-    def __init__(self, fuse_cfg=None, **kwargs):
-        super(mit_b5, self).__init__(
-            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
-            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 6, 40, 3], sr_ratios=[8, 4, 2, 1],
-            drop_rate=0.0, drop_path_rate=0.1)
+# class mit_b5(MRATransformer):
+#     def __init__(self, fuse_cfg=None, **kwargs):
+#         super(mit_b5, self).__init__(
+#             patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
+#             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 6, 40, 3], sr_ratios=[8, 4, 2, 1],
+#             drop_rate=0.0, drop_path_rate=0.1)
 
 
 if __name__=="__main__":

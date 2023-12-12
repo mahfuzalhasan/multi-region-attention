@@ -37,7 +37,7 @@ def Main(args):
     print(f'$$$$$$$$$$$$$ run_id:{run_id} $$$$$$$$$$$$$')
 
     config_filename = args.config.split('/')[-1].split('.')[0] 
-    print('ocnfig_filename: ',config_filename)    
+    print('cnfig_filename: ',config_filename)    
     if config_filename == 'cityscapes':
         # print('cityscapes')
         from configs.config_cityscapes import config
@@ -74,6 +74,9 @@ def Main(args):
     # config network and criterion
     criterion = nn.CrossEntropyLoss(reduction='mean', ignore_index=config.IMAGE.background)
     model=segmodel(cfg=config, criterion=criterion, norm_layer=nn.BatchNorm2d)
+
+    def count_parameters(model):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
     
     # group weight and config optimizer
     base_lr = config.TRAIN.lr
@@ -114,6 +117,11 @@ def Main(args):
         optimizer.zero_grad()
         sum_loss = 0
         m_iou_batches = []
+
+        n_params = count_parameters(model)
+        print(f'params: {n_params}')
+
+        # exit()
         
         for idx, sample in enumerate(train_loader):
             imgs = sample['image']
