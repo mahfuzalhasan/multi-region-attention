@@ -1,0 +1,41 @@
+City
+
+mit_b0  
+
+encoder  7796989952
+mlp  34687418368
+total  42.484408320
+
+mit_b1
+
+encoder  19830308864
+mlp  138748624896
+total  158.578933760
+
+mit_b2
+
+encoder  32258940928
+mlp  138748624896
+total  171.007565824
+
+
+
+ADE
+
+mit_b0
+
+encoder  1449107456
+mlp  34687418368
+total  36.136525824
+
+mit_b1
+
+encoder  3963650048
+mlp  34687942656
+total  38.651592704
+
+mit_b2
+
+encoder  5371224064
+mlp  34687942656
+total  40.059166720

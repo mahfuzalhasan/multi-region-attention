@@ -32,7 +32,7 @@ class DecoderHead(nn.Module):
         self.num_classes = num_classes
         self.dropout_ratio = dropout_ratio
         self.align_corners = align_corners
-        
+        self.embed_dim = embed_dim
         self.in_channels = in_channels
         
         if dropout_ratio > 0:
@@ -74,10 +74,30 @@ class DecoderHead(nn.Module):
 
         _c1 = self.linear_c1(c1).permute(0,2,1).reshape(n, -1, c1.shape[2], c1.shape[3])
 
+        self.output_size_1 = _c1.size()[2:]
         _c = self.linear_fuse(torch.cat([_c4, _c3, _c2, _c1], dim=1))
         x = self.dropout(_c)
         x = self.linear_pred(x)
+        self.output_size_2 = x.size()[2:]
 
         return x
 
-        
+    def flops_MLP(self, input_dim, embed_dim):
+        # MLP Linear layer FLOPs
+        return 2 * input_dim * embed_dim
+
+
+    def flops(self):
+        total_flops = 0
+
+        # FLOPs for MLP layers
+        for c in self.in_channels:
+            total_flops += self.flops_MLP(c, self.embed_dim)
+
+        # FLOPs for linear_fuse convolution
+        total_flops += (2* 1 * 1 * self.embed_dim * self.embed_dim * 4 * self.output_size_1[0] * self.output_size_1[1])
+        total_flops += self.output_size_1[0] * self.output_size_1[1] * self.embed_dim
+        # FLOPs for linear_pred convolution
+        total_flops +=  (2* 1 * 1 * self.embed_dim  *self.num_classes * self.output_size_2[0] * self.output_size_2[1])
+
+        return total_flops
