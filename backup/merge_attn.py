@@ -1,36 +1,11 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
-# from einops import rearrange, repeat
+from einops import rearrange, repeat
 import math
 import time
-import copy
 
-
-# RegionVIT: https://github.com/IBM/RegionViT/tree/master
-# patch_tokens: (BxH/rxW/r)x(rxr)xC
-def convert_to_spatial_layout(patch_tokens, output_channels, B, H, W, region_size, mask, p_l, p_r, p_t, p_b):
-    """
-    Convert the token layer from flatten into 2-D, will be used to downsample the spatial dimension.
-    """
-    # patch_tokens: (BxH/sxW/s)x(ksxks)xC
-
-    Ch = output_channels
-    # reorganize data, need to convert back to patch_tokens: BxCxHxW
-    patch_tokens = patch_tokens.transpose(1, 2).reshape((B, -1, region_size * region_size* Ch)).transpose(1, 2)
-    patch_tokens = F.fold(patch_tokens, (H, W), kernel_size=region_size, stride=region_size, padding=(0, 0))
-
-    if mask is not None:
-        if p_b > 0:
-            patch_tokens = patch_tokens[:, :, :-p_b, :]
-        if p_r > 0:
-            patch_tokens = patch_tokens[:, :, :, :-p_r]
-
-    return patch_tokens
-
-# RegionVIT: https://github.com/IBM/RegionViT/tree/master
 def convert_to_flatten_layout(patch_tokens, ws):
     """
     Convert the token layer in a flatten form, it will speed up the model.
@@ -43,52 +18,46 @@ def convert_to_flatten_layout(patch_tokens, ws):
     need_mask = False
     
     H_ks = math.ceil(H/ws)
-    W_ks = math.ceil(W/ws)
+    W_ks = math.ceil(W/ks)
     p_l, p_r, p_t, p_b = 0, 0, 0, 0
-    if H % ws != 0 or W % ws != 0 and ws!=1:
+    if H % ws != 0 or W % ws != 0 ans ws!=1:
         p_l, p_r = 0, W_ks * ws - W
         p_t, p_b = 0, H_ks * ws - H
         patch_tokens = F.pad(patch_tokens, (p_l, p_r, p_t, p_b))
         need_mask = True
-        # print(f'patch token padded: {patch_tokens.shape}')
-        # print(f'pads: pl:{p_l}, pr:{p_r}, pt:{p_t}, pb:{p_b}')
+        print(f'patch token padded: {patch_tokens.shape}')
+        print(f'pads: pl:{p_l}, pr:{p_r}, pt:{p_t}, pb:{p_b}')
     
     B, C, H, W = patch_tokens.shape
     kernel_size = (H // H_ks, W // W_ks)
-    # print(f'kernel: {kernel_size}')
+    print(f'kernel: {kernel_size}')
     tmp = F.unfold(patch_tokens, kernel_size=kernel_size, stride=kernel_size, padding=(0, 0))  # Nx(Cxksxks)x(H/sxK/s)
     patch_tokens = tmp.transpose(1, 2).reshape(-1, C, kernel_size[0] * kernel_size[1]).transpose(-2, -1)  # (NxH/sxK/s)x(ksxks)xC
-    # print(f'patched tokens:{patch_tokens.shape}')
+    print(f'patched tokens:{patch_tokens.shape}')
     if need_mask:
         BH_sK_s, ksks, C = patch_tokens.shape
         H_s, W_s = H // ws, W // ws
-        mask = torch.ones(BH_sK_s // B, ksks, ksks, device=patch_tokens.device, dtype=torch.float)
-        # print(f'created mask: {mask.shape}')
-        right = torch.zeros(ksks, ksks, device=patch_tokens.device, dtype=torch.float)
+        mask = torch.ones(BH_sK_s // B, 1 + ksks, 1 + ksks, device=patch_tokens.device, dtype=torch.float)
+        print(f'created mask: {mask.shape}')
+        right = torch.zeros(1 + ksks, 1 + ksks, device=patch_tokens.device, dtype=torch.float)
         tmp = torch.zeros(ws, ws, device=patch_tokens.device, dtype=torch.float)
-        # print(f'tmp:{tmp} shape:{tmp.shape}')
+        print(f'tmp:{tmp} shape:{tmp.shape}')
         tmp[0:(ws - p_r), 0:(ws - p_r)] = 1.
-        right = tmp.repeat(ws, ws)
-        # print(f'tmp after repeat:{tmp.shape} \n tmp:\n{tmp}')
-        # right = tmp
-        # right[1:, 1:] = tmp
-        # right[0, 0] = 1
-        # right[0, 1:] = torch.tensor([1.] * (ws - p_r) + [0.] * p_r).repeat(ws).to(right.device)
-        # right[1:, 0] = torch.tensor([1.] * (ws - p_r) + [0.] * p_r).repeat(ws).to(right.device)
-        
+        tmp = tmp.repeat(ws, ws)
+        print(f'tmp after repeat:{tmp.shape} \n tmp:\n{tmp}')
+        right[1:, 1:] = tmp
+        right[0, 0] = 1
+        right[0, 1:] = torch.tensor([1.] * (ws - p_r) + [0.] * p_r).repeat(ws).to(right.device)
+        right[1:, 0] = torch.tensor([1.] * (ws - p_r) + [0.] * p_r).repeat(ws).to(right.device)
         bottom = torch.zeros_like(right)
-        bottom[0:ws*(ws - p_b), 0:ws*(ws - p_b)] = 1.
-        
-        # bottom_right = copy.deepcopy(right)
-        # bottom_right[0:ws * (ws - p_b) + 1, 0:ws * (ws - p_b) + 1] = 1.
-
-        bottom_right = torch.zeros_like(right)
-        bottom_right[0:ws*(ws-p_b), 0:ws*(ws-p_r)] =  right[0:ws*(ws-p_b), 0:ws*(ws-p_r)]
+        bottom[0:ws * (ws - p_b) + 1, 0:ws * (ws - p_b) + 1] = 1.
+        bottom_right = copy.deepcopy(right)
+        bottom_right[0:ws * (ws - p_b) + 1, 0:ws * (ws - p_b) + 1] = 1.
 
         mask[W_s - 1:(H_s - 1) * W_s:W_s, ...] = right
         mask[(H_s - 1) * W_s:, ...] = bottom
         mask[-1, ...] = bottom_right
-        # print(f'final mask:{mask}')
+        print(f'final mask:{mask}')
         mask = mask.repeat(B, 1, 1)
         
     else:
@@ -218,12 +187,18 @@ class MultiScaleAttention(nn.Module):
                 m.bias.data.zero_()
 
     
-    """ arr.shape: B, N, Ch"""
+    """ arr.shape: B, N, C"""
     # create overlapping patches
     def patchify(self, arr, H, W, region):
-        unwrap = arr.view(arr.shape[0], H, W, arr.shape[2]).permute(0, 3, 1, 2)
-        flatten, mask, p_l, p_r, p_t, p_b, B, Ch, H, W = convert_to_flatten_layout(unwrap, region)
-        return flatten, mask, p_l, p_r, p_t, p_b, B, Ch, H, W
+        # #print(arr.shape)
+        unwrap = arr.view(arr.shape[0], H, W, arr.shape[2]).permute(0, 2, 1, 3)
+        # flatten: (B x H/r x k/r), r^2, C
+        # mask: (B x H/r x k/r), (1+r^2), (1+r^2), C
+        flatten, mask, p_l, p_r, p_t, p_b, B, C, H, W = convert_to_flatten_layout(unwrap, region)
+        # B, Nh, H, W, Ch = unwrap.shape
+        # patches = unwrap.view(B, Nh, H // region, region, W // region, region, Ch)
+        # patches = patches.permute(0, 1, 2, 4, 3, 5, 6).contiguous().view(B, Nh, -1, region**2, Ch)
+        return flatten, mask, p_l, p_r, p_t, p_b, B, C, H, W
 
 
     def attention(self, corr, v):
@@ -267,6 +242,12 @@ class MultiScaleAttention(nn.Module):
         self.W=W
         A = []
         B, N, C = x.shape
+        # for i in range(self.num_heads):
+        #     region = self.local_region_shape[i]
+        #     need_mask = False
+        #     x = x.view(B, H, W, C).permute(0, 2, 1, 3)
+        #     x, mask, p_l, p_r, p_t, p_b, B, C, H, W = convert_to_flatten_layout(x, region)
+        #     N = H*W
         
         q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
         kv = self.kv(x).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
@@ -281,43 +262,35 @@ class MultiScaleAttention(nn.Module):
             # kh = torch.unsqueeze(kh, dim=1)
             vh = v[:, i, :, :]
             # vh = torch.unsqueeze(vh, dim=1)
-            # print(f'qh: {qh.shape}')
+        
             region = self.local_region_shape[i]
             if region == 1:
                 a_1 = self.attention_global(qh, kh, vh)
                 # print('global attn: ',a_1.shape)
             else:
-                # patch: B_Hr_Wr x Np x Ch, mask:B x (1+Np) x (1+Np)
-                q_patch, mask, p_l, p_r, p_t, p_b, B, Ch, new_H, new_W = self.patchify(qh, H, W, region)
-                k_patch, mask, _, _, _, _, _, _, _, _ = self.patchify(kh, H, W, region)
-                v_patch, mask, _, _, _, _, _, _, _, _ = self.patchify(vh, H, W, region)
+                # B, Nh, N_patch, Np, C
+                q_patch = self.patchify(qh, H, W, region)
+                k_patch = self.patchify(kh, H, W, region)
+                v_patch = self.patchify(vh, H, W, region)
 
                 
-                B_Hr_Wr, Np, Ch = q_patch.shape
+                B, Nh, N_Patch, Np, Ch = q_patch.shape
                 # q_p, k_p, v_p = map(lambda t: rearrange(t, 'b h n d -> (b h) n d', h = Nh), (q_patch, k_patch, v_patch))
                 
-                # B_r_r, Np, Np    where Np = region^2, for whole image Np=N
+                # B, Nh, N_patch, Np, Np    where Np = p^2, for whole image Np=N
                 correlation = (q_patch @ k_patch.transpose(-2, -1)) * self.scale
-                # print(f'corr:{correlation.shape} mask:{mask.shape}')
-                if mask is not None:
-                    correlation = correlation.masked_fill(mask == 0, torch.finfo(correlation.dtype).min)
 
-                # if len(self.correlation_matrices)>0:
-                #     correlation = self.merge_correlation_matrices(correlation, i)
-                # self.correlation_matrices.append(correlation)
+                if len(self.correlation_matrices)>0:
+                    correlation = self.merge_correlation_matrices(correlation, i)
+                self.correlation_matrices.append(correlation)
                 
-                # (B_Hr_Wr, Np, Ch), (B_Hr_Wr, Np, Np)
+                # (B, Nh, N_patch, Np, C), (B, Nh, N_patch, Np, Np)
                 patched_attn, attn_matrix = self.attention(correlation, v_patch)
-                
-                # print(f"patched attn:{patched_attn.shape}")
-                patched_attn = convert_to_spatial_layout(patched_attn, Ch, B, new_H, new_W, region, mask, p_l, p_r, p_t, p_b)
-                patched_attn = patched_attn.reshape(B, Ch, N).permute(0, 2, 1)
-            # B, 1, N, Ch
-            a_1 = patched_attn.unsqueeze(dim=1) # To introduce head dimension
+                patched_attn = patched_attn.reshape(B, N, Ch)
+            a_1 = patched_attn.unsqueeze(dim=1)
             self.attn_outcome_per_head.append(a_1)
 
         #concatenating multi-scale outcome from different heads
-        # B, head, N, Ch
         attn_fused = torch.cat(self.attn_outcome_per_head, axis=1)
         #print('attn_fused:',attn_fused.shape)
         attn_fused = attn_fused.permute(0, 2, 1, 3).contiguous().reshape(B, N, C)
@@ -356,17 +329,17 @@ class MultiScaleAttention(nn.Module):
 if __name__=="__main__":
     # #######print(backbone)
     B = 4
-    C = 96
-    H = 128
-    W = 128
+    C = 3
+    H = 480
+    W = 640
     device = 'cuda:1'
     ms_attention = MultiScaleAttention(96, num_heads=4, sr_ratio=8, 
-                                local_region_shape=[7, 11, 14, 18], img_size=(128,128))
+                                local_region_shape=[1, 4, 8, 16, 16], img_size=(128,128))
     ms_attention = ms_attention.to(device)
     # ms_attention = nn.DataParallel(ms_attention, device_ids = [0,1])
     # ms_attention.to(f'cuda:{ms_attention.device_ids[0]}', non_blocking=True)
 
-    f = torch.randn(B, H*W, C).to(device)
+    f = torch.randn(B, 16384, 96).to(device)
     ##print(f'input to multiScaleAttention:{f.shape}')
-    y = ms_attention(f, H, W)
-    print('output: ',y.shape)
+    y = ms_attention(f, 128, 128)
+    ##print('output: ',y.shape)
