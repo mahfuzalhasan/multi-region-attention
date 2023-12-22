@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import math
 import copy
 
-B, C, H, W = 1, 1, 7, 7
+B, C, H, W = 1, 1, 8, 8
 patch_tokens = torch.randn(B,C,H,W)
 ws = 3
 

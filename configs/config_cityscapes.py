@@ -68,9 +68,9 @@ C.IMAGE.image_width = 1024
 
 """ Model Config"""
 C.MODEL = edict()
-C.MODEL.backbone = 'mit_b2'
+C.MODEL.backbone = 'mit_b0'
 C.MODEL.pretrained_model = osp.join(C.SYSTEM.root_dir, 'pretrained/mit_b2_imagenet.pth')
-C.MODEL.heads = [2, 4, 5, 8]
+C.MODEL.heads = [3, 6, 12, 24]
 C.MODEL.decoder = 'MLPDecoder'
 C.MODEL.decoder_embed_dim = 512
 C.MODEL.checkpoint_start_epoch = 250
