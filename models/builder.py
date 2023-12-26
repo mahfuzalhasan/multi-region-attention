@@ -2,17 +2,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.init_func import init_weight
-from utils.load_utils import load_pretrain
+import sys
+sys.path.append("..")
 from functools import partial
 import numpy as np
 
+
+from configs.config_imagenet import config as cfg
+
+from utils.init_func import init_weight
+from utils.load_utils import load_pretrain
 from utils.logger import get_logger
 
 class EncoderDecoder(nn.Module):
     def __init__(self, cfg=None, criterion=nn.CrossEntropyLoss(reduction='mean', ignore_index=255), norm_layer=nn.BatchNorm2d, test=False):
         super(EncoderDecoder, self).__init__()
-        self.channels = [64, 128, 320, 512]
+        self.channels = cfg.MODEL.decoder_embed_dim
         self.norm_layer = norm_layer
         self.test = test
         self.input_size = (cfg.IMAGE.image_height, cfg.IMAGE.image_width)
@@ -21,47 +26,28 @@ class EncoderDecoder(nn.Module):
         # import backbone and decoder
         if cfg.MODEL.backbone == 'mit_b0':
             self.logger.info('Using backbone: Segformer-B0')
-            self.channels = [32, 64, 160, 256]    # keep this must why???
-            from .encoders.mra_transformer import mit_b0 as backbone
+            from encoders.mra_transformer import mit_b0 as backbone
             self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
         
         elif cfg.MODEL.backbone == 'mit_b1':
             self.logger.info('Using backbone: Segformer-B1')
-            from .encoders.mra_transformer import mit_b1 as backbone
+            from encoders.mra_transformer import mit_b1 as backbone
             self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
         
         elif cfg.MODEL.backbone == 'mit_b2':
             self.logger.info('Using backbone: Segformer-B2')
-            from .encoders.mra_transformer import mit_b2 as backbone
+            from encoders.mra_transformer import mit_b2 as backbone
             self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
-        
-        elif cfg.MODEL.backbone == 'mit_b3':
-            self.logger.info('Using backbone: Segformer-B3')
-            from .encoders.mra_transformer import mit_b3 as backbone
-            self.backbone = backbonebackbone(img_size=self.input_size, norm_fuse=norm_layer)
-        
-        elif cfg.MODEL.backbone == 'mit_b4':
-            self.logger.info('Using backbone: Segformer-B4')
-            from .encoders.mra_transformer import mit_b4 as backbone
-            self.backbone = backbonebackbone(img_size=self.input_size, norm_fuse=norm_layer)
-        
-        elif cfg.MODEL.backbone == 'mit_b5':
-            self.logger.info('Using backbone: Segformer-B5')
-            from .encoders.mra_transformer import mit_b5 as backbone
-            self.backbone = backbone(img_size=self.input_size, norm_fuse=norm_layer)
-        
         else:
             self.logger.error('Backbone not found!!! Currently only support mit_b0 - mit_b5')
 
         self.aux_head = None
 
-        if cfg.MODEL.decoder == 'MLPDecoder':
-            self.logger.info('Using MLP Decoder')
-            from .decoders.MLPDecoder import DecoderHead
-            self.decode_head = DecoderHead(in_channels=self.channels, 
-                                        num_classes=cfg.DATASET.num_classes, 
-                                        norm_layer=norm_layer, 
-                                        embed_dim=cfg.MODEL.decoder_embed_dim)
+        if cfg.MODEL.decoder == 'ClassificationHead':
+            self.logger.info('Using Classification Head')
+            from decoders.classifier import Classifier
+            self.decode_head = Classifier(in_channels=self.channels, 
+                                        num_classes=cfg.DATASET.num_classes)
         else:
             self.logger.error('Decoder not found!!! Currently only support MLPDecoder')
         
@@ -89,11 +75,11 @@ class EncoderDecoder(nn.Module):
         orisize = rgb.shape
         x = self.backbone(rgb)
         out = self.decode_head.forward(x)
-        out = F.interpolate(out, size=orisize[2:], mode='bilinear', align_corners=False)
-        if self.aux_head:
-            aux_fm = self.aux_head(x[self.aux_index])
-            aux_fm = F.interpolate(aux_fm, size=orisize[2:], mode='bilinear', align_corners=False)
-            return out, aux_fm
+        # out = F.interpolate(out, size=orisize[2:], mode='bilinear', align_corners=False)
+        # if self.aux_head:
+        #     aux_fm = self.aux_head(x[self.aux_index])
+        #     aux_fm = F.interpolate(aux_fm, size=orisize[2:], mode='bilinear', align_corners=False)
+        #     return out, aux_fm
         return out
 
     def forward(self, rgb, label=None):
@@ -110,3 +96,15 @@ class EncoderDecoder(nn.Module):
             if self.aux_head:
                 loss += self.aux_rate * self.criterion(aux_fm, label.long())
             return loss, out
+
+if __name__=="__main__":
+    criterion = None
+    model=EncoderDecoder(cfg=cfg, criterion=criterion, norm_layer=nn.BatchNorm2d)
+    B = 4
+    C = 3
+    H = 224
+    W = 224
+    device = 'cuda:1'
+    rgb = torch.randn(B, C, H, W)
+    y = model(rgb)
+    print("final output: ", y.shape)

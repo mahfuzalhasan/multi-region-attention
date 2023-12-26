@@ -18,6 +18,7 @@ from models.builder import EncoderDecoder as segmodel
 
 from dataloader.cityscapes.cityscapes_dataloader import CityscapesDataset
 from dataloader.ade.ade import ADE20KSegmentation
+from dataloader.imagenet.build import build_loader
 from validation import validation
 
 from utils.init_func import init_weight, group_weight
@@ -48,6 +49,9 @@ def Main(args):
         root = config.DATASET.root
         train_dataset = ADE20KSegmentation(root=root, split='train', mode='train')
         val_dataset = ADE20KSegmentation(root=root, split='val', mode='val')
+    elif config_filename == 'imagenet':
+        from configs.imagenet import config
+        dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
     else:
         raise NotImplementedError
 

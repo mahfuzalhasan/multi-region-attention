@@ -3,10 +3,10 @@ import math
 import time
 import torch
 import torch.nn as nn
-from mra_helper import OverlapPatchEmbed, Block
+from .mra_helper import OverlapPatchEmbed, Block
 # import sys
 # sys.path.append('..')
-from configs.config_cityscapes import config as cfg
+from configs.config_imagenet import config as cfg
 
 from timm.models.layers import trunc_normal_
 from functools import partial
@@ -142,6 +142,9 @@ class MRATransformer(nn.Module):
 
         for blk in self.block1:
             x_rgb = blk(x_rgb, H, W)
+
+        print(f'norm layer: {self.norm1}')
+        print('Output: {}'.format(x_rgb.shape))
         x_rgb = self.norm1(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         outs.append(x_rgb)
@@ -180,10 +183,12 @@ class MRATransformer(nn.Module):
             x_rgb = blk(x_rgb, H, W)
         x_rgb = self.norm4(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        ### B, 768, 49
         outs.append(x_rgb)
         self.logger.info('Stage 4 - Output: {}'.format(x_rgb.shape))
+        print('Stage 4 - Output: {}'.format(x_rgb.shape))
         
-        return outs
+        return x_rgb
 
     def forward(self, x_rgb):
         # print()
@@ -253,7 +258,6 @@ if __name__=="__main__":
     W = 224
     device = 'cuda:1'
     rgb = torch.randn(B, C, H, W)
-    x = torch.randn(B, C, H, W)
     outputs = backbone(rgb)
     for output in outputs:
         print(output.size())
