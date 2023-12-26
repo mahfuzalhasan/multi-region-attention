@@ -19,14 +19,14 @@ remoteip = os.popen('pwd').read()
 C.SYSTEM.root_dir = os.getcwd()
 C.SYSTEM.abs_dir = osp.realpath(".")
 #C.SYSTEM.device_ids = [0] # for mahdi (lab-pc)
-C.SYSTEM.device_ids = [0, 1] # for mahdi (newton)
-#C.SYSTEM.device_ids = [0, 1, 2, 3] # for FICS
+# C.SYSTEM.device_ids = [0, 1] # for mahdi (newton)
+C.SYSTEM.device_ids = [0, 1, 2, 3] # for FICS
 
 
 """Dataset Config"""
 C.DATASET = edict()
 C.DATASET.name = 'imagenet'
-C.DATASET.root = osp.join(C.SYSTEM.root_dir, '/data/imagenet/ILSVRC/Data/CLS-LOC')
+C.DATASET.root = osp.join(C.SYSTEM.root_dir, 'data/imagenet/ILSVRC/Data/CLS-LOC')
 # C.DATASET.DATA_PATH = osp.join(C.SYSTEM.root_dir, 'data/Cityscapes')
 C.DATASET.mode = 'RGB'
 # Input image size
@@ -35,7 +35,7 @@ C.DATASET.IMG_SIZE = 224
 C.DATASET.INTERPOLATION = 'bicubic'
 # C.DATASET.dataset_config_path = osp.join(C.SYSTEM.root_dir, 'dataloader/cityscapes_rgbd_config.yaml')
 
-C.DATASET.num_classes = 1000  #for imagenet
+C.DATASET.NUM_CLASSES = 1000  #for imagenet
 
 # Cache Data in Memory, could be overwritten by command line argument
 C.DATASET.CACHE_MODE = 'part'
@@ -97,13 +97,14 @@ C.AUG.MIXUP_MODE = 'batch'
 """ Model Config"""
 C.MODEL = edict()
 C.MODEL.backbone = 'mit_b0'
-C.MODEL.pretrained_model = osp.join(C.SYSTEM.root_dir, 'pretrained/mit_b2_imagenet.pth')
+C.MODEL.pretrained_model = None #osp.join(C.SYSTEM.root_dir, 'pretrained/mit_b2_imagenet.pth')
 C.MODEL.heads = [3, 6, 12, 24]
 C.MODEL.decoder = 'ClassificationHead'#'MLPDecoder'
 C.MODEL.decoder_embed_dim = 768
-C.MODEL.checkpoint_start_epoch = 250
+C.MODEL.checkpoint_start_epoch = 100
 C.MODEL.checkpoint_step = 5
 C.MODEL.NAME = 'mra_tiny'
+C.MODEL.LABEL_SMOOTHING = 0.1
 
 
 """Train Config"""
@@ -114,13 +115,16 @@ C.TRAIN.MIN_LR = 5e-6
 
 C.TRAIN.ACCUMULATION_STEPS = 0
 
-C.TRAIN.batch_size = 2
 C.TRAIN.nepochs = 300
 C.TRAIN.num_workers = 4
 
 C.TRAIN.warm_up_epoch = 20
+C.TRAIN.CLIP_GRAD = 5.0
+C.TRAIN.WEIGHT_DECAY = 0.05
 
 C.TRAIN.fix_bias = True
+C.TRAIN.bn_eps = 1e-3
+C.TRAIN.bn_momentum = 0.1
 C.TRAIN.train_print_stats = 50
 C.TRAIN.resume_train = False 
 C.TRAIN.resume_model_path = osp.join(C.SYSTEM.root_dir, 'Results/saved_models/07-10-23_2314/model_330.pth')
@@ -150,7 +154,7 @@ C.EVAL = edict()
 """ Test """
 C.TEST = edict()
 # Whether to use center crop when testing
-C.TEST.CROP = True
+C.TEST.CROP = False
 
 """Path Config"""
 def add_path(path):

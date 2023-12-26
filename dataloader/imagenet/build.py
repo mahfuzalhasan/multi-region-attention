@@ -20,16 +20,18 @@ from .samplers import SubsetRandomSampler
 
 
 def build_loader(config):
-    config.defrost()
+    # config.defrost()
     dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config)
-    config.freeze()
-    print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
+    # config.freeze()
+    # print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
     dataset_val, _ = build_dataset(is_train=False, config=config)
-    print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
+    # print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
 
-    num_tasks = dist.get_world_size()
-    global_rank = dist.get_rank()
-    if config.DATA.ZIP_MODE and config.DATA.CACHE_MODE == 'part':
+    # num_tasks = dist.get_world_size()
+    # global_rank = dist.get_rank()
+    num_tasks = 4
+    global_rank = 0
+    if config.DATASET.ZIP_MODE and config.DATASET.CACHE_MODE == 'part':
         indices = np.arange(dist.get_rank(), len(dataset_train), dist.get_world_size())
         sampler_train = SubsetRandomSampler(indices)
     else:
@@ -37,25 +39,27 @@ def build_loader(config):
             dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
         )
 
-    indices = np.arange(dist.get_rank(), len(dataset_val), dist.get_world_size())
+    # indices = np.arange(dist.get_rank(), len(dataset_val), dist.get_world_size())
+    indices = np.arange(global_rank, len(dataset_val), num_tasks)
     sampler_val = SubsetRandomSampler(indices)
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train, sampler=sampler_train,
-        batch_size=config.DATA.BATCH_SIZE,
-        num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=config.DATA.PIN_MEMORY,
+        batch_size=config.DATASET.BATCH_SIZE,
+        num_workers=config.DATASET.NUM_WORKERS,
+        pin_memory=config.DATASET.PIN_MEMORY,
         drop_last=True,
     )
 
     data_loader_val = torch.utils.data.DataLoader(
         dataset_val, sampler=sampler_val,
-        batch_size=config.DATA.BATCH_SIZE,
+        batch_size=config.DATASET.BATCH_SIZE,
         shuffle=False,
-        num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=config.DATA.PIN_MEMORY,
+        num_workers=config.DATASET.NUM_WORKERS,
+        pin_memory=config.DATASET.PIN_MEMORY,
         drop_last=False
     )
+    print("dataloader completed")
 
     # setup mixup / cutmix
     mixup_fn = None
@@ -64,7 +68,7 @@ def build_loader(config):
         mixup_fn = Mixup(
             mixup_alpha=config.AUG.MIXUP, cutmix_alpha=config.AUG.CUTMIX, cutmix_minmax=config.AUG.CUTMIX_MINMAX,
             prob=config.AUG.MIXUP_PROB, switch_prob=config.AUG.MIXUP_SWITCH_PROB, mode=config.AUG.MIXUP_MODE,
-            label_smoothing=config.MODEL.LABEL_SMOOTHING, num_classes=config.MODEL.NUM_CLASSES)
+            label_smoothing=config.MODEL.LABEL_SMOOTHING, num_classes=config.DATASET.NUM_CLASSES)
 
     return dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn
 
@@ -86,8 +90,11 @@ def build_dataset(is_train, config):
                 transform
             )
         else:
+            
             root = os.path.join(config.DATASET.root, prefix)
+            print("data root: ",root)
             dataset = datasets.ImageFolder(root, transform=transform)
+            print("completed")
             nb_classes = 1000
     elif config.DATA.DATASET == 'imagewoof':
         prefix = 'train' if is_train else 'val'

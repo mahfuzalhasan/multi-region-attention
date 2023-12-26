@@ -316,7 +316,7 @@ def ddp_setup(rank: int, world_size: int):
         world_size: Total number of processes
     """
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12366"
+    os.environ["MASTER_PORT"] = "12355"
     init_process_group(backend="nccl", rank=rank, world_size=world_size)
     torch.cuda.set_device(rank)
 
@@ -333,14 +333,23 @@ if __name__ == '__main__':
     # print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
 
     # ddp_setup(rank, world_size)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+    print("mpi: ",torch.distributed.is_mpi_available())
+    print("nccl: ",torch.distributed.is_nccl_available())
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+    print("address and port set")
+    print(f'ws:{world_size}')
     torch.cuda.set_device(config.LOCAL_RANK)
-    exit()
+    print("set cuda device done")
+    init_process_group(backend='nccl', init_method='env://', world_size=2, rank=rank)
+    torch.distributed.barrier()
+    print("initialization DDP done")
+    # exit()
 
     # Get the world size and rank to determine the process group
-    world_size = int(os.environ['WORLD_SIZE'])
-    world_rank = int(os.environ['RANK'])
-    local_rank = int(os.environ['LOCAL_RANK'])
+    # world_size = int(os.environ['WORLD_SIZE'])
+    # world_rank = int(os.environ['RANK'])
+    # local_rank = int(os.environ['LOCAL_RANK'])
 
     print(f'rank:{rank} wr:{world_rank} world_size:{world_size}')
     print(f'dist rank: {dist.get_rank()}')
@@ -380,5 +389,5 @@ if __name__ == '__main__':
 
     # print config
     logger.info(config.dump())
-    exit()
+    # exit()
     main(config)

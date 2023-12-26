@@ -143,8 +143,8 @@ class MRATransformer(nn.Module):
         for blk in self.block1:
             x_rgb = blk(x_rgb, H, W)
 
-        print(f'norm layer: {self.norm1}')
-        print('Output: {}'.format(x_rgb.shape))
+        # print(f'norm layer: {self.norm1}')
+        # print('Output: {}'.format(x_rgb.shape))
         x_rgb = self.norm1(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         outs.append(x_rgb)
@@ -186,7 +186,7 @@ class MRATransformer(nn.Module):
         ### B, 768, 49
         outs.append(x_rgb)
         self.logger.info('Stage 4 - Output: {}'.format(x_rgb.shape))
-        print('Stage 4 - Output: {}'.format(x_rgb.shape))
+        # print('Stage 4 - Output: {}'.format(x_rgb.shape))
         
         return x_rgb
 

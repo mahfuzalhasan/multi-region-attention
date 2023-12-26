@@ -26,17 +26,17 @@ class EncoderDecoder(nn.Module):
         # import backbone and decoder
         if cfg.MODEL.backbone == 'mit_b0':
             self.logger.info('Using backbone: Segformer-B0')
-            from encoders.mra_transformer import mit_b0 as backbone
+            from .encoders.mra_transformer import mit_b0 as backbone
             self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
         
         elif cfg.MODEL.backbone == 'mit_b1':
             self.logger.info('Using backbone: Segformer-B1')
-            from encoders.mra_transformer import mit_b1 as backbone
+            from .encoders.mra_transformer import mit_b1 as backbone
             self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
         
         elif cfg.MODEL.backbone == 'mit_b2':
             self.logger.info('Using backbone: Segformer-B2')
-            from encoders.mra_transformer import mit_b2 as backbone
+            from .encoders.mra_transformer import mit_b2 as backbone
             self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
         else:
             self.logger.error('Backbone not found!!! Currently only support mit_b0 - mit_b5')
@@ -47,7 +47,7 @@ class EncoderDecoder(nn.Module):
             self.logger.info('Using Classification Head')
             from decoders.classifier import Classifier
             self.decode_head = Classifier(in_channels=self.channels, 
-                                        num_classes=cfg.DATASET.num_classes)
+                                        num_classes=cfg.DATASET.NUM_CLASSES)
         else:
             self.logger.error('Decoder not found!!! Currently only support MLPDecoder')
         
@@ -64,10 +64,6 @@ class EncoderDecoder(nn.Module):
         init_weight(self.decode_head, nn.init.kaiming_normal_,
                 self.norm_layer, cfg.TRAIN.bn_eps, cfg.TRAIN.bn_momentum,
                 mode='fan_in', nonlinearity='relu')
-        if self.aux_head:
-            init_weight(self.aux_head, nn.init.kaiming_normal_,
-                self.norm_layer, cfg.TRAIN.bn_eps, cfg.TRAIN.bn_momentum,
-                mode='fan_in', nonlinearity='relu')
 
     def encode_decode(self, rgb):
         """Encode images with backbone and decode into a semantic segmentation
@@ -75,11 +71,6 @@ class EncoderDecoder(nn.Module):
         orisize = rgb.shape
         x = self.backbone(rgb)
         out = self.decode_head.forward(x)
-        # out = F.interpolate(out, size=orisize[2:], mode='bilinear', align_corners=False)
-        # if self.aux_head:
-        #     aux_fm = self.aux_head(x[self.aux_index])
-        #     aux_fm = F.interpolate(aux_fm, size=orisize[2:], mode='bilinear', align_corners=False)
-        #     return out, aux_fm
         return out
 
     def forward(self, rgb, label=None):
@@ -87,7 +78,7 @@ class EncoderDecoder(nn.Module):
             out, aux_fm = self.encode_decode(rgb)
         else:
             out = self.encode_decode(rgb)
-            
+        
         if label is None:
             return out
 
@@ -95,6 +86,7 @@ class EncoderDecoder(nn.Module):
             loss = self.criterion(out, label.long())
             if self.aux_head:
                 loss += self.aux_rate * self.criterion(aux_fm, label.long())
+            print(f'from builder out:{out.size()} loss:{loss}')
             return loss, out
 
 if __name__=="__main__":

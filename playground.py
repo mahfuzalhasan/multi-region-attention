@@ -4,7 +4,10 @@ import torch.nn.functional as F
 
 import math
 import copy
-
+global_rank = 0
+dataset_val = 
+indices = np.arange(global_rank, len(dataset_val), num_tasks)
+self.rank:self.total_size:self.num_replicas
 B, C, H, W = 1, 1, 8, 8
 patch_tokens = torch.randn(B,C,H,W)
 ws = 3

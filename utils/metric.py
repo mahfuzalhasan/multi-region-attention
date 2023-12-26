@@ -2,19 +2,19 @@
 
 import numpy as np
 import torch
-from torchmetrics import JaccardIndex
+# from torchmetrics import JaccardIndex
 
 np.seterr(divide='ignore', invalid='ignore')
 
 
 
-def cal_mean_iou(pred, target, ignore_index):
-    score = torch.exp(pred) # B, C, H, W
-    jaccard = JaccardIndex(task="multiclass", num_classes=score.shape[1], ignore_index = ignore_index).to(score.get_device())    
+# def cal_mean_iou(pred, target, ignore_index):
+#     score = torch.exp(pred) # B, C, H, W
+#     jaccard = JaccardIndex(task="multiclass", num_classes=score.shape[1], ignore_index = ignore_index).to(score.get_device())    
     
-    mean_iou = jaccard(score, target)
-    # print('mean iou: ',mean_iou)
-    return mean_iou.detach().cpu().numpy()
+#     mean_iou = jaccard(score, target)
+#     # print('mean iou: ',mean_iou)
+#     return mean_iou.detach().cpu().numpy()
 
 # gt = 255
 # pred.shape == gt.shape --> 1xHxW
