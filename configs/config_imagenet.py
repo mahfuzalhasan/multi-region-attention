@@ -96,7 +96,7 @@ C.AUG.MIXUP_MODE = 'batch'
 
 """ Model Config"""
 C.MODEL = edict()
-C.MODEL.backbone = 'mit_b0'
+C.MODEL.backbone = 'mra_tiny'
 C.MODEL.pretrained_model = None #osp.join(C.SYSTEM.root_dir, 'pretrained/mit_b2_imagenet.pth')
 C.MODEL.heads = [3, 6, 12, 24]
 C.MODEL.decoder = 'ClassificationHead'#'MLPDecoder'
@@ -125,7 +125,7 @@ C.TRAIN.WEIGHT_DECAY = 0.05
 C.TRAIN.fix_bias = True
 C.TRAIN.bn_eps = 1e-3
 C.TRAIN.bn_momentum = 0.1
-C.TRAIN.train_print_stats = 50
+C.TRAIN.train_print_stats = 100
 C.TRAIN.resume_train = False 
 C.TRAIN.resume_model_path = osp.join(C.SYSTEM.root_dir, 'Results/saved_models/07-10-23_2314/model_330.pth')
 
@@ -149,6 +149,7 @@ C.TRAIN.OPTIMIZER.MOMENTUM = 0.9
 
 """Eval Config"""
 C.EVAL = edict()
+C.TRAIN.EVAL_PRINT_FREQ = 50
 
 
 """ Test """

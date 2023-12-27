@@ -24,17 +24,17 @@ class EncoderDecoder(nn.Module):
         # print('Builder input: ',self.input_size)
         self.logger = get_logger()
         # import backbone and decoder
-        if cfg.MODEL.backbone == 'mit_b0':
+        if cfg.MODEL.backbone == 'mra_tiny':
             self.logger.info('Using backbone: Segformer-B0')
             from .encoders.mra_transformer import mit_b0 as backbone
             self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
         
-        elif cfg.MODEL.backbone == 'mit_b1':
+        elif cfg.MODEL.backbone == 'mra_small':
             self.logger.info('Using backbone: Segformer-B1')
             from .encoders.mra_transformer import mit_b1 as backbone
             self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
         
-        elif cfg.MODEL.backbone == 'mit_b2':
+        elif cfg.MODEL.backbone == 'mra_base':
             self.logger.info('Using backbone: Segformer-B2')
             from .encoders.mra_transformer import mit_b2 as backbone
             self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
@@ -86,7 +86,7 @@ class EncoderDecoder(nn.Module):
             loss = self.criterion(out, label.long())
             if self.aux_head:
                 loss += self.aux_rate * self.criterion(aux_fm, label.long())
-            print(f'from builder out:{out.size()} loss:{loss}')
+            # print(f'from builder out:{out.size()} loss:{loss}')
             return loss, out
 
 if __name__=="__main__":

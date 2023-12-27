@@ -1,11 +1,10 @@
-import os.path as osp
 import os
-import sys
 import time
 import argparse
-from tqdm import tqdm
-from datetime import datetime
+import datetime
 import numpy as np
+import sys
+
 
 import torch
 from  torch.utils.data import DataLoader
@@ -15,10 +14,11 @@ import torch.backends.cudnn as cudnn
 from torch.nn.parallel import DistributedDataParallel, DataParallel
 
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+from timm.utils import accuracy, AverageMeter
 
 from models.builder import EncoderDecoder as segmodel
 from dataloader.imagenet.build import build_loader
-# from validation import validation
+from validation import validation
 from lr_scheduler import build_scheduler
 from optimizer import build_optimizer
 from logger import create_logger
@@ -36,7 +36,7 @@ sys.path.append(current_dir)
 # torch.multiprocessing.set_sharing_strategy('file_system')
 
 def Main(args):
-    run_id = datetime.today().strftime('%m-%d-%y_%H%M')
+    run_id = datetime.datetime.today().strftime('%m-%d-%y_%H%M')
     print(f'$$$$$$$$$$$$$ run_id:{run_id} $$$$$$$$$$$$$')
 
     config_filename = args.config.split('/')[-1].split('.')[0] 
@@ -47,6 +47,9 @@ def Main(args):
     else:
         raise NotImplementedError
 
+    print(f"\n #training:{len(dataset_train)} #val:{len(dataset_val)}")
+    print(f"\n it in one epoch: len_dl::: train:{len(data_loader_train)} val:{len(data_loader_val)}")
+    print(f"\n batch size:{config.DATASET.BATCH_SIZE} \n")
     save_log = os.path.join(config.WRITE.log_dir, str(run_id))
     if not os.path.exists(save_log):
         os.makedirs(save_log)
@@ -85,15 +88,6 @@ def Main(args):
     optimizer = build_optimizer(config, model)
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
     
-    # if config.TRAIN.optimizer == 'AdamW': # Segformer original uses AdamW
-    #     optimizer = torch.optim.AdamW(params_list, lr=base_lr, betas=(0.9, 0.999), weight_decay=config.TRAIN.weight_decay)
-    # elif config.TRAIN.optimizer == 'SGDM':
-    #     optimizer = torch.optim.SGD(params_list, lr=base_lr, momentum=config.TRAIN.momentum, weight_decay=config.TRAIN.weight_decay)
-    # else:
-    #     raise NotImplementedError
-
-    # config lr policy
-    
     print("multigpu training")
     print('device ids: ',config.SYSTEM.device_ids)
     model = nn.DataParallel(model, device_ids = config.SYSTEM.device_ids)
@@ -109,24 +103,31 @@ def Main(args):
         optimizer.load_state_dict(state_dict['optimizer'])
         starting_epoch = state_dict['epoch']
         print('resuming training with model: ', config.TRAIN.resume_model_path)
-    
+
+    n_params = count_parameters(model)
+    print(f'#params of the model: {n_params}')
+
+    start_time = time.time()
     for epoch in range(starting_epoch, config.TRAIN.nepochs):
         model.train()
         optimizer.zero_grad()
-        num_steps = len(data_loader_train)
-        sum_loss = 0
-        m_iou_batches = []
-
-        n_params = count_parameters(model)
-        print(f'params: {n_params} steps: {num_steps}')
         
+        num_steps = len(data_loader_train)
+        batch_time = AverageMeter()
+        loss_meter = AverageMeter()
+        norm_meter = AverageMeter()
 
-        # exit()
+        acc1_meter = AverageMeter()
+        acc5_meter = AverageMeter()
+        
+        start = time.time()
+        end = time.time()
         
         for idx, (samples, targets) in enumerate(data_loader_train):
             samples = samples.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
-            targets = targets.to(f'cuda:{model.device_ids[0]}', non_blocking=True)  
-
+            targets = targets.to(f'cuda:{model.device_ids[0]}', non_blocking=True) 
+            # print(f'target initial: {targets.size()}') 
+            initial_targets = targets.clone()
             if mixup_fn is not None:
                 samples, targets = mixup_fn(samples, targets)
 
@@ -142,7 +143,7 @@ def Main(args):
             # loss = torch.mean(loss) 
             optimizer.zero_grad()
             loss.backward()
-            
+
             if config.TRAIN.CLIP_GRAD:
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
             else:
@@ -151,46 +152,79 @@ def Main(args):
             optimizer.step()
             lr_scheduler.step_update(epoch * num_steps + idx)
 
-            lr = optimizer.param_groups[0]["lr"]
-            sum_loss += loss.item()
-            print_str = 'Epoch {}/{}'.format(epoch, config.TRAIN.nepochs) \
-                    + ' Iter {}/{}:'.format(idx + 1, len(data_loader_train)) \
-                    + ' lr=%.4e' % lr \
-                    + ' loss=%.4f total_loss=%.4f' % (loss, (sum_loss / (idx + 1)))+'\n'
+            torch.cuda.synchronize()
 
-            del loss
+            loss_meter.update(loss.item(), targets.size(0))
+            norm_meter.update(grad_norm)
+            # print(f'output:::::{outputs.size()} target:{targets.size()}')
+            t_acc1, t_acc5 = accuracy(outputs, initial_targets, topk=(1, 5))
+            acc1_meter.update(t_acc1.item(), initial_targets.size(0))
+            acc5_meter.update(t_acc5.item(), initial_targets.size(0))
+
+            batch_time.update(time.time() - end)
+            end = time.time()
+
             if idx % config.TRAIN.train_print_stats == 0:
-                print(f'{print_str}')
+                lr = optimizer.param_groups[0]['lr']
+                memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+                etas = batch_time.avg * (num_steps - idx)
+                print(
+                    f'Train: [{epoch}/{config.TRAIN.nepochs}][{idx}/{num_steps}]\t'
+                    f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.6f}\t'
+                    f'batch time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                    f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
+                    f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
+                    f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
+                    f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
+                    f'mem {memory_used:.0f}MB')
 
-        train_loss = sum_loss/len(train_loader)
-        train_mean_iou = np.mean(np.asarray(m_iou_batches))
-        print(f"########## epoch:{epoch} train_loss:{train_loss}############")
-        writer.add_scalar('train_loss', train_loss, epoch)
+        t_loss = loss_meter.avg
+        t_acc1 = acc1_meter.avg
+        t_acc5 = acc5_meter.avg
+        print(f' Training::::: Acc@1 {t_acc1:.3f} Acc@5 {t_acc5:.3f}')
+        training_max_acc = 0.0
+        training_max_acc = max(training_max_acc, t_acc1)
+        writer.add_scalar('train_max_acc', training_max_acc, epoch)
+        writer.add_scalar('train_loss', t_loss, epoch)
+        writer.add_scalar('train_acc_1', t_acc1, epoch)
+        writer.add_scalar('train_acc_5', t_acc5, epoch)
 
+        epoch_time = time.time() - start
+        print(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
+        max_accuracy = 0.0
         #save model every 10 epochs before checkpoint_start_epoch
         if (epoch < config.MODEL.checkpoint_start_epoch) and (epoch % (config.MODEL.checkpoint_step*2) == 0):
-            save_model(model, optimizer, epoch, run_id, config.WRITE.checkpoint_dir)
+            save_model(model, optimizer, lr_scheduler, epoch, run_id, config.WRITE.checkpoint_dir)
         #save model every 5 epochs after checkpoint_start_epoch
         elif (epoch >= config.MODEL.checkpoint_start_epoch) and (epoch % config.MODEL.checkpoint_step == 0) or (epoch == config.TRAIN.nepochs):
-            save_model(model, optimizer, epoch, run_id, config.WRITE.checkpoint_dir)
-        
-        # compute val metrics
-        # val_loss, val_mean_iou = validation(epoch, val_loader, model, config)            
-        # writer.add_scalar('val_loss', val_loss, epoch)
-        # writer.add_scalar('val_mIOU', val_mean_iou, epoch)
-        # print(f't_loss:{train_loss:.4f} v_loss:{val_loss:.4f} val_mIOU:{val_mean_iou:.4f}')
+            save_model(model, optimizer, lr_scheduler, epoch, run_id, config.WRITE.checkpoint_dir)
+        with torch.no_grad():
+            acc1, acc5, v_loss = validation(epoch, data_loader_val, model, config)  
+        max_accuracy = max(max_accuracy, acc1)     
+        writer.add_scalar('val_max_acc', max_accuracy, epoch)   
+        writer.add_scalar('val_loss', v_loss, epoch)
+        writer.add_scalar('val_acc_1', acc1, epoch)
+        writer.add_scalar('val_acc_5', acc5, epoch)
+        print(f'\n ###### stats after epoch :{epoch} ######### \n')
+        print(f't_loss:{t_loss:.4f} v_loss:{v_loss:.4f}') 
+        print(f't_acc1:{t_acc1:.4f} t_acc5: {t_acc5:.4f} v_acc1:{acc1:.4f} v_acc5:{acc5:.4f}')
+        print('\n ######## epoch {epoch} is completed ########### \n')
 
-def save_model(model, optimizer, epoch, run_id, checkpoint_dir):
+    total_time = time.time() - start_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    print(f'Total Training time {total_time_str}')
+
+def save_model(model, optimizer, lr_scheduler, epoch, run_id, checkpoint_dir):
     save_dir = os.path.join(checkpoint_dir, str(run_id))
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     save_file_path = os.path.join(save_dir, 'model_{}.pth'.format(epoch))
-    states = {
-            'epoch': epoch,
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict()
-    }
-    torch.save(states, save_file_path)
+    save_state = {'model': model.module.state_dict(),
+                  'optimizer': optimizer.state_dict(),
+                  'lr_scheduler': lr_scheduler.state_dict(),
+                  'max_accuracy': max_accuracy,
+                  'epoch': epoch}
+    torch.save(save_state, save_file_path)
     
 
 if __name__=='__main__':
