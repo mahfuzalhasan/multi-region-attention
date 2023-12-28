@@ -21,16 +21,3 @@ with open(filename, 'wb') as file:
             file.write(chunk)
             progress_bar.update(len(chunk))
 progress_bar.close()
-
-# Extract the dataset
-with zipfile.ZipFile(filename, 'r') as zip_ref:
-    file_list = zip_ref.namelist()
-    total_files = len(file_list)
-    extracted_files = 0
-    progress_bar = tqdm(total=total_files, unit='file')
-    for file in file_list:
-        zip_ref.extract(file, path=path)
-        extracted_files += 1
-        progress_bar.update(1)
-        progress_bar.set_description(f"Extracting: {file}")
-    progress_bar.close()
