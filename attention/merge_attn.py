@@ -11,7 +11,7 @@ import copy
 
 # RegionVIT: https://github.com/IBM/RegionViT/tree/master
 # patch_tokens: (BxH/rxW/r)x(rxr)xC
-def convert_to_spatial_layout(patch_tokens, output_channels, B, new_H, new_W, region_size, mask, p_l, p_r, p_t, p_b):
+def convert_to_spatial_layout(patch_tokens, output_channels, B, H, W, region_size, mask, p_l, p_r, p_t, p_b):
     """
     Convert the token layer from flatten into 2-D, will be used to downsample the spatial dimension.
     """
@@ -20,7 +20,7 @@ def convert_to_spatial_layout(patch_tokens, output_channels, B, new_H, new_W, re
     Ch = output_channels
     # reorganize data, need to convert back to patch_tokens: BxCxHxW
     patch_tokens = patch_tokens.transpose(1, 2).reshape((B, -1, region_size * region_size* Ch)).transpose(1, 2)
-    patch_tokens = F.fold(patch_tokens, (new_H, new_W), kernel_size=region_size, stride=region_size, padding=(0, 0))
+    patch_tokens = F.fold(patch_tokens, (H, W), kernel_size=region_size, stride=region_size, padding=(0, 0))
 
     if mask is not None:
         if p_b > 0:
@@ -29,7 +29,6 @@ def convert_to_spatial_layout(patch_tokens, output_channels, B, new_H, new_W, re
             patch_tokens = patch_tokens[:, :, :, :-p_r]
 
     return patch_tokens
-
 
 # RegionVIT: https://github.com/IBM/RegionViT/tree/master
 def convert_to_flatten_layout(patch_tokens, ws):
@@ -76,6 +75,24 @@ def convert_to_flatten_layout(patch_tokens, ws):
 
     return patch_tokens, mask, p_l, p_r, p_t, p_b, B, C, H, W
 
+def get_relative_position_index(win_h: int, win_w: int) -> torch.Tensor:
+    """Function to generate pair-wise relative position index for each token inside the window.
+        Taken from Timms Swin V1 implementation.
+    Args:
+        win_h (int): Window/Grid height.
+        win_w (int): Window/Grid width.
+    Returns:
+        relative_coords (torch.Tensor): Pair-wise relative position indexes [height * width, height * width].
+    """
+    coords = torch.stack(torch.meshgrid([torch.arange(win_h), torch.arange(win_w)]))
+    coords_flatten = torch.flatten(coords, 1)
+    relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]
+    relative_coords = relative_coords.permute(1, 2, 0).contiguous()
+    relative_coords[:, :, 0] += win_h - 1
+    relative_coords[:, :, 1] += win_w - 1
+    relative_coords[:, :, 0] *= 2 * win_w - 1
+    return relative_coords.sum(-1)
+
 
 
 class MultiScaleAttention(nn.Module):
@@ -98,7 +115,71 @@ class MultiScaleAttention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
+        unique_vals = sorted(list(set(self.local_region_shape)))
+        if unique_vals.count(1)>0:
+            unique_vals.remove(1)
+
+        corr_projections = []
+        
+        for i in range(len(unique_vals)-1):
+            
+            small_patch = unique_vals[i]    # 3
+            large_patch = unique_vals[i+1] # 7
+
+            # print(small_patch, large_patch)
+
+            in_channel, out_channel = self.proj_channel_conv(small_patch, large_patch)
+
+            c_p = nn.Conv2d(in_channel, out_channel, 1)
+            # print('######### cp: ########### ',c_p)
+
+            corr_projections.append(c_p)
+
+        self.corr_projections = nn.ModuleList(corr_projections)
+
+        # print('corr_proj convs: ',self.corr_projections)
+        # exit()
+        self.sr_ratio = sr_ratio
+        if sr_ratio > 1:
+            self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
+            self.norm = nn.LayerNorm(dim)
         self.apply(self._init_weights)
+
+    def proj_channel_conv(self, small_patch, large_patch):
+        N = self.img_size[0] * self.img_size[1]   # (1024 = 32 x 32) # ()
+        # print('N: ',N)
+
+        N_small_patch = N // (small_patch ** 2)     # 64
+        N_large_patch = N // (large_patch ** 2)     # 16
+
+        # print('Ns, Nl: ',N_small_patch, N_large_patch)
+        ratio = (large_patch ** 2) // (small_patch ** 2)    # 4
+
+        # print('ratio: ',ratio)
+
+        # sa = (B, 1, 64, 16 ,16)
+        # ba = (B, 1, 16, 64 ,64)
+
+        # sa --> ba : sa =  (B, 1, 64/(4**2), 64, 64) = (B, 1, 4, 64, 64)
+
+        # bsa = sa concat ba = B, 1, 20, 64, 64
+        #  bsa --> ba = 1x1conv(( 4 + 16), 16, 1)
+
+        reduced_patch = N_small_patch // (ratio**2)   
+
+        # print('red: ',reduced_patch)  
+        
+        in_channel = reduced_patch + N_large_patch
+        return in_channel, N_large_patch
+
+    def calc_index(self, patch_size):
+        unique_vals = sorted(list(set(self.local_region_shape)))
+        if unique_vals.count(1)>0:
+            unique_vals.remove(1)
+        index = unique_vals.index(patch_size)
+        return index
+
+
     
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -137,6 +218,27 @@ class MultiScaleAttention(nn.Module):
         x = (attn @ v)
         return x
 
+    # correlation --> B, nh, N_patch, Np, Np
+    def merge_correlation_matrices(self, correlation, head_idx):
+
+        if self.local_region_shape[head_idx-1]==self.local_region_shape[head_idx]:
+            # SILU
+            correlation += self.correlation_matrices[-1]
+        else:
+            small_corr_matrix = self.correlation_matrices[-1]   #B,1,64,16,16
+            B, nh, N_patch_s, Np_s, Np_s = small_corr_matrix.shape
+            _, _, _, Np_l, Np_l = correlation.shape             #B,1,16,64,64
+            small_corr_matrix = small_corr_matrix.view(B, nh, -1, Np_l, Np_l) #B,1,4,64,64
+            correlation = torch.cat([correlation, small_corr_matrix],axis=2)#B,1,20,64,64
+            correlation = correlation.squeeze(dim=1)    #B,20,64,64
+            index = self.calc_index(self.local_region_shape[head_idx-1])
+            correlation = self.corr_projections[index](correlation)#B,16,64,64
+            correlation = correlation.unsqueeze(dim=1)  #B,1,16,64,64
+
+        return correlation
+
+
+
     def forward(self, x, H, W):
         #####print('!!!!!!!!!!!!attention head: ',self.num_heads, ' !!!!!!!!!!')
         # N = H*W
@@ -165,29 +267,41 @@ class MultiScaleAttention(nn.Module):
                 k_patch, mask, _, _, _, _, _, _, _, _ = self.patchify(kh, H, W, region)
                 v_patch, mask, _, _, _, _, _, _, _, _ = self.patchify(vh, H, W, region)
 
+                
                 B_Hr_Wr, Np, Ch = q_patch.shape
+                # q_p, k_p, v_p = map(lambda t: rearrange(t, 'b h n d -> (b h) n d', h = Nh), (q_patch, k_patch, v_patch))
                 
                 # B_r_r, Np, Np    where Np = region^2, for whole image Np=N
                 correlation = (q_patch @ k_patch.transpose(-2, -1)) * self.scale
+                # print(f'corr:{correlation.shape} {correlation.view(B, -1, Np, Np).shape}')
                 if mask is not None:
+                    # print(f'mask:{mask.shape}')
                     correlation = correlation.masked_fill(mask == 0, torch.finfo(correlation.dtype).min)
+
+                # if len(self.correlation_matrices)>0:
+                #     correlation = self.merge_correlation_matrices(correlation, i)
+                # self.correlation_matrices.append(correlation)
                 
                 # (B_Hr_Wr, Np, Ch), (B_Hr_Wr, Np, Np)
                 patched_attn, attn_matrix = self.attention(correlation, v_patch)
                 
+                # print(f"patched attn:{patched_attn.shape}")
                 patched_attn = convert_to_spatial_layout(patched_attn, Ch, B, new_H, new_W, region, mask, p_l, p_r, p_t, p_b)
                 patched_attn = patched_attn.reshape(B, Ch, N).permute(0, 2, 1)
                 a_1 = patched_attn.unsqueeze(dim=1) # To introduce head dimension
-
+                # print('local: ',a_1.shape)
+            # B, 1, N, Ch
+            
             self.attn_outcome_per_head.append(a_1)
 
-        #concatenating multi-scale-region attention outcome from different heads
+        #concatenating multi-scale outcome from different heads
         # B, head, N, Ch
         attn_fused = torch.cat(self.attn_outcome_per_head, axis=1)
+        #print('attn_fused:',attn_fused.shape)
         attn_fused = attn_fused.permute(0, 2, 1, 3).contiguous().reshape(B, N, C)
+        #print('fina attn_fused:',attn_fused.shape)
         attn_fused = self.proj(attn_fused)
-        attn_fused = self.proj_drop(attn_fused)
-        
+        attn_fused = self.proj_drop(attn_fused )
         return attn_fused
 
     def flops(self):

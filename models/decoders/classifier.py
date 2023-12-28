@@ -29,6 +29,5 @@ class Classifier(nn.Module):
         x = x.reshape(B, C, -1)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        # print(f'x:{x.shape}')
         output = self.head(x)
         return output

@@ -124,7 +124,7 @@ def val_ade(epoch, val_loader, model, config):
             #         + ' loss=%.4f total_loss=%.4f' % (loss, (sum_loss / (idx + 1)))+'\n'
 
             del loss
-            if idx % config.EVAL.val_print_stats == 0:
+            if idx % config.EVAL.EVAL_PRINT_FREQ == 0:
                 #pbar.set_description(print_str, refresh=True)
                 print(f'sample {idx}')
 
@@ -174,17 +174,16 @@ def val_imagenet(epoch, data_loader, model, config):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if idx % config.EVAL_PRINT_FREQ == 0:
+        if idx % config.EVAL.EVAL_PRINT_FREQ == 0:
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             print(
                 f'Test: [{idx}/{len(data_loader)}]\t'
-                f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                f'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                 f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
                 f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                 f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
     print(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
-    
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
     
 @torch.no_grad()

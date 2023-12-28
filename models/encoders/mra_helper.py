@@ -5,32 +5,23 @@ from functools import partial
 
 import os
 import sys
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir)) 
 sys.path.append(parent_dir)
-
 model_dir = os.path.abspath(os.path.join(parent_dir, os.pardir))
 sys.path.append(model_dir)
 
-from merge_attn import MultiScaleAttention
-# from merge_global_attn import MultiScaleAttention
+from multi_scale_attention import MultiScaleAttention
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
-from decoders.MLPDecoder import DecoderHead
-
-
-
 
 
 import math
 import time
 from utils.logger import get_logger
 
-
-
-
 logger = get_logger()
-
 
 class DWConv(nn.Module):
     """
@@ -78,7 +69,7 @@ class Mlp(nn.Module):
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Linear(in_features, hidden_features)
-        self.dwconv = DWConv(hidden_features)
+        # self.dwconv = DWConv(hidden_features)
         self.act = act_layer()
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
@@ -102,7 +93,7 @@ class Mlp(nn.Module):
 
     def forward(self, x, H, W):
         x = self.fc1(x)
-        x = self.dwconv(x, H, W)
+        # x = self.dwconv(x, H, W)
         x = self.act(x)
         x = self.drop(x)
         x = self.fc2(x)
@@ -128,7 +119,9 @@ class Block(nn.Module):
         self.attn = MultiScaleAttention(
             dim,
             num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
-            attn_drop=attn_drop, proj_drop=drop, sr_ratio=sr_ratio, local_region_shape=self.local_region_shape, img_size=img_size)
+            attn_drop=attn_drop, proj_drop=drop, sr_ratio=sr_ratio, 
+            local_region_shape=self.local_region_shape, img_size=img_size)
+
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
@@ -206,7 +199,6 @@ class OverlapPatchEmbed(nn.Module):
         # B C H W
         self.input_shape = x.shape
         x = self.proj(x)
-        # print('x after proj: ',x.shape)
         _, _, H, W = x.shape
         x = x.flatten(2).transpose(1, 2)
         # B H*W/16 C
@@ -229,18 +221,22 @@ class OverlapPatchEmbed(nn.Module):
         total_flops = conv_flops + norm_flops
         return total_flops
 
+class PosCNN(nn.Module):
+    def __init__(self, in_chans, embed_dim=768, s=1):
+        super(PosCNN, self).__init__()
+        self.proj = nn.Sequential(nn.Conv2d(in_chans, embed_dim, 3, s, 1, bias=True, groups=embed_dim), )
+        self.s = s
 
-# if __name__=="__main__":
-#     backbone = mit_b2(norm_layer = nn.BatchNorm2d)
-    
-#     # #######print(backbone)
-#     B = 4
-#     C = 3
-#     H = 1024
-#     W = 1024
-#     device = 'cuda:1'
-#     rgb = torch.randn(B, C, H, W)
-#     # x = torch.randn(B, C, H, W)
-#     outputs = backbone(rgb)
-#     for output in outputs:
-#         print(output.size())
+    def forward(self, x, H, W):
+        B, N, C = x.shape
+        feat_token = x
+        cnn_feat = feat_token.transpose(1, 2).view(B, C, H, W)
+        if self.s == 1:
+            x = self.proj(cnn_feat) + cnn_feat
+        else:
+            x = self.proj(cnn_feat)
+        x = x.flatten(2).transpose(1, 2)
+        return x
+
+    def no_weight_decay(self):
+        return ['proj.%d.weight' % i for i in range(4)]

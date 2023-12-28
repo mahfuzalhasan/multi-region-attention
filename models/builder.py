@@ -53,14 +53,17 @@ class EncoderDecoder(nn.Module):
         
 
         self.criterion = criterion
-        if self.criterion and not self.test:
-            self.init_weights(cfg, pretrained=cfg.MODEL.pretrained_model)
+        # Not necessary during imagenet training.
+        # Weight gets initialized inside encoder and classification head.
+        
+        # if self.criterion and not self.test:
+        #     self.init_weights(cfg, pretrained=cfg.MODEL.pretrained_model)
     
     def init_weights(self, cfg, pretrained=None):
         if pretrained:
             self.logger.info('Loading pretrained model: {}'.format(pretrained))
             self.backbone.init_weights(pretrained=pretrained)
-        self.logger.info('Initing weights ...')
+        self.logger.info('Initiating weights ...')
         init_weight(self.decode_head, nn.init.kaiming_normal_,
                 self.norm_layer, cfg.TRAIN.bn_eps, cfg.TRAIN.bn_momentum,
                 mode='fan_in', nonlinearity='relu')

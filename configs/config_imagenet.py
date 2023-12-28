@@ -105,6 +105,10 @@ C.MODEL.checkpoint_start_epoch = 100
 C.MODEL.checkpoint_step = 5
 C.MODEL.NAME = 'mra_tiny'
 C.MODEL.LABEL_SMOOTHING = 0.1
+# Dropout rate
+C.MODEL.DROP_RATE = 0.0
+# Drop path rate
+C.MODEL.DROP_PATH_RATE = 0.1
 
 
 """Train Config"""
@@ -149,7 +153,7 @@ C.TRAIN.OPTIMIZER.MOMENTUM = 0.9
 
 """Eval Config"""
 C.EVAL = edict()
-C.TRAIN.EVAL_PRINT_FREQ = 50
+C.EVAL.EVAL_PRINT_FREQ = 50
 
 
 """ Test """

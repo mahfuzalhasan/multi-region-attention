@@ -46,7 +46,7 @@ def Main(args):
         dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
     else:
         raise NotImplementedError
-
+    
     print(f"\n #training:{len(dataset_train)} #val:{len(dataset_val)}")
     print(f"\n it in one epoch: len_dl::: train:{len(data_loader_train)} val:{len(data_loader_val)}")
     print(f"\n batch size:{config.DATASET.BATCH_SIZE} \n")
@@ -177,7 +177,6 @@ def Main(args):
                     f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                     f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                     f'mem {memory_used:.0f}MB')
-
         t_loss = loss_meter.avg
         t_acc1 = acc1_meter.avg
         t_acc5 = acc5_meter.avg
@@ -198,6 +197,7 @@ def Main(args):
         #save model every 5 epochs after checkpoint_start_epoch
         elif (epoch >= config.MODEL.checkpoint_start_epoch) and (epoch % config.MODEL.checkpoint_step == 0) or (epoch == config.TRAIN.nepochs):
             save_model(model, optimizer, lr_scheduler, epoch, run_id, config.WRITE.checkpoint_dir)
+        start_val = time.time()
         with torch.no_grad():
             acc1, acc5, v_loss = validation(epoch, data_loader_val, model, config)  
         max_accuracy = max(max_accuracy, acc1)     
@@ -205,6 +205,8 @@ def Main(args):
         writer.add_scalar('val_loss', v_loss, epoch)
         writer.add_scalar('val_acc_1', acc1, epoch)
         writer.add_scalar('val_acc_5', acc5, epoch)
+        val_epoch_time = time.time() - start_val
+        print(f"EPOCH {epoch} val takes {datetime.timedelta(seconds=int(val_epoch_time))}")
         print(f'\n ###### stats after epoch :{epoch} ######### \n')
         print(f't_loss:{t_loss:.4f} v_loss:{v_loss:.4f}') 
         print(f't_acc1:{t_acc1:.4f} t_acc5: {t_acc5:.4f} v_acc1:{acc1:.4f} v_acc5:{acc5:.4f}')
