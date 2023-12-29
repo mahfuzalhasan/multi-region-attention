@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 # Define the path where the dataset will be saved
 path = "/home/abjawad/Documents"
+save_path = "/home/abjawad/Documents/imagenet"
 filename = os.path.join(path, "imagenet-object-localization-challenge.zip")
 
 # Extract the dataset
