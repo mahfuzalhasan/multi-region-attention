@@ -11,3 +11,10 @@
 
 -- delete: 
     kubectl delete job my-job
+
+-- port forwarding
+    kubectl port-forward test-pod 8888:8888
+
+-- jupyter 
+    jupyter notebook --ip='0.0.0.0' --allow-root
+
