@@ -14,7 +14,9 @@ model_dir = os.path.abspath(os.path.join(parent_dir, os.pardir))
 sys.path.append(model_dir)
 
 from multi_scale_attention import MultiScaleAttention
+from global_subsampled_attn import GlobalSubsampledAttention
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+from configs.config_imagenet import config
 
 
 import math
@@ -58,6 +60,7 @@ class DWConv(nn.Module):
 
         total_flops = conv_flops
         return total_flops
+
 
 
 class Mlp(nn.Module):
@@ -121,6 +124,13 @@ class Block(nn.Module):
             num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
             attn_drop=attn_drop, proj_drop=drop, sr_ratio=sr_ratio, 
             local_region_shape=self.local_region_shape, img_size=img_size)
+        
+        self.gsa = None
+        if config.MODEL.GSA:
+            self.norm3 = norm_layer(dim)
+            self.gsa = GlobalSubsampledAttention(dim, num_heads, self.local_region_shape[-1])
+            self.norm4 = norm_layer(dim)
+            self.mlp_gsa = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
@@ -148,7 +158,9 @@ class Block(nn.Module):
     def forward(self, x, H, W):
         x = x + self.drop_path(self.attn(self.norm1(x), H, W))
         x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
-
+        if self.gsa:
+            x = x + self.drop_path(self.gsa(self.norm3(x), H, W))
+            x = x + self.drop_path(self.mlp_gsa(self.norm4(x), H, W))
         return x
     
     def flops(self):

@@ -109,6 +109,7 @@ C.MODEL.LABEL_SMOOTHING = 0.1
 C.MODEL.DROP_RATE = 0.0
 # Drop path rate
 C.MODEL.DROP_PATH_RATE = 0.1
+C.MODEL.GSA = True
 
 
 """Train Config"""
