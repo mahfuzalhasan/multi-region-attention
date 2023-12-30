@@ -115,7 +115,7 @@ class Block(nn.Module):
     Transformer Block: Self-Attention -> Mix FFN -> OverLap Patch Merging
     """
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, sr_ratio=1, local_region_shape=[5, 10, 20, 40], g_attn=True, img_size=(1024, 1024)):
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, sr_ratio=1, local_region_shape=[5, 10, 20, 40], g_attn=config.MODEL.GSA, img_size=(1024, 1024)):
         super().__init__()
         self.norm1 = norm_layer(dim)
         self.local_region_shape = local_region_shape

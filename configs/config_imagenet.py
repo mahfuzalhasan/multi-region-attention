@@ -42,7 +42,7 @@ C.DATASET.CACHE_MODE = 'part'
 
 ####################
 # Batch size for a single GPU, could be overwritten by command line argument
-C.DATASET.BATCH_SIZE = 128
+C.DATASET.BATCH_SIZE = 200
 # Path to dataset, could be overwritten by command line argument
 C.DATASET.DATA_PATH = ''
 # Dataset name
@@ -109,7 +109,7 @@ C.MODEL.LABEL_SMOOTHING = 0.1
 C.MODEL.DROP_RATE = 0.0
 # Drop path rate
 C.MODEL.DROP_PATH_RATE = 0.1
-C.MODEL.GSA = True
+C.MODEL.GSA = False
 
 
 """Train Config"""
@@ -130,7 +130,7 @@ C.TRAIN.WEIGHT_DECAY = 0.05
 C.TRAIN.fix_bias = True
 C.TRAIN.bn_eps = 1e-3
 C.TRAIN.bn_momentum = 0.1
-C.TRAIN.train_print_stats = 100
+C.TRAIN.train_print_stats = 400
 C.TRAIN.resume_train = False 
 C.TRAIN.resume_model_path = osp.join(C.SYSTEM.root_dir, 'Results/saved_models/07-10-23_2314/model_330.pth')
 
@@ -154,7 +154,7 @@ C.TRAIN.OPTIMIZER.MOMENTUM = 0.9
 
 """Eval Config"""
 C.EVAL = edict()
-C.EVAL.EVAL_PRINT_FREQ = 50
+C.EVAL.EVAL_PRINT_FREQ = 30
 
 
 """ Test """

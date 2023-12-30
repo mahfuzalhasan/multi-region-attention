@@ -95,7 +95,7 @@ def Main(args):
 
     print(f'############ begin training ################# \n')
 
-    starting_epoch = 1
+    starting_epoch = 0
     if config.TRAIN.resume_train:
         print('Loading model to resume train')
         state_dict = torch.load(config.TRAIN.resume_model_path)
@@ -163,7 +163,6 @@ def Main(args):
 
             batch_time.update(time.time() - end)
             end = time.time()
-
             if idx % config.TRAIN.train_print_stats == 0:
                 lr = optimizer.param_groups[0]['lr']
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
@@ -193,10 +192,10 @@ def Main(args):
         max_accuracy = 0.0
         #save model every 10 epochs before checkpoint_start_epoch
         if (epoch < config.MODEL.checkpoint_start_epoch) and (epoch % (config.MODEL.checkpoint_step*2) == 0):
-            save_model(model, optimizer, lr_scheduler, epoch, run_id, config.WRITE.checkpoint_dir)
+            save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
         #save model every 5 epochs after checkpoint_start_epoch
         elif (epoch >= config.MODEL.checkpoint_start_epoch) and (epoch % config.MODEL.checkpoint_step == 0) or (epoch == config.TRAIN.nepochs):
-            save_model(model, optimizer, lr_scheduler, epoch, run_id, config.WRITE.checkpoint_dir)
+            save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
         start_val = time.time()
         with torch.no_grad():
             acc1, acc5, v_loss = validation(epoch, data_loader_val, model, config)  
@@ -210,13 +209,13 @@ def Main(args):
         print(f'\n ###### stats after epoch :{epoch} ######### \n')
         print(f't_loss:{t_loss:.4f} v_loss:{v_loss:.4f}') 
         print(f't_acc1:{t_acc1:.4f} t_acc5: {t_acc5:.4f} v_acc1:{acc1:.4f} v_acc5:{acc5:.4f}')
-        print('\n ######## epoch {epoch} is completed ########### \n')
+        print(f'\n ######## epoch {epoch} is completed ########### \n')
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f'Total Training time {total_time_str}')
 
-def save_model(model, optimizer, lr_scheduler, epoch, run_id, checkpoint_dir):
+def save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, checkpoint_dir):
     save_dir = os.path.join(checkpoint_dir, str(run_id))
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
@@ -225,7 +224,8 @@ def save_model(model, optimizer, lr_scheduler, epoch, run_id, checkpoint_dir):
                   'optimizer': optimizer.state_dict(),
                   'lr_scheduler': lr_scheduler.state_dict(),
                   'max_accuracy': max_accuracy,
-                  'epoch': epoch}
+                  'epoch': epoch,
+                  'run_id':str(run_id)}
     torch.save(save_state, save_file_path)
     
 
