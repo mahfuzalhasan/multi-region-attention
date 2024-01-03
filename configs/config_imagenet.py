@@ -131,8 +131,8 @@ C.TRAIN.fix_bias = True
 C.TRAIN.bn_eps = 1e-3
 C.TRAIN.bn_momentum = 0.1
 C.TRAIN.train_print_stats = 400
-C.TRAIN.resume_train = False 
-C.TRAIN.resume_model_path = osp.join(C.SYSTEM.root_dir, 'Results/saved_models/07-10-23_2314/model_330.pth')
+C.TRAIN.resume_train = True 
+C.TRAIN.resume_model_path = osp.join(C.SYSTEM.root_dir, 'results/saved_models/12-29-23_2141/model_195.pth')
 
 # LR scheduler
 C.TRAIN.LR_SCHEDULER = edict()

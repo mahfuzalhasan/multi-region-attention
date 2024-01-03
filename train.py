@@ -96,13 +96,18 @@ def Main(args):
     print(f'############ begin training ################# \n')
 
     starting_epoch = 0
+    max_accuracy = None
     if config.TRAIN.resume_train:
         print('Loading model to resume train')
         state_dict = torch.load(config.TRAIN.resume_model_path)
-        model.load_state_dict(state_dict['model'])
+        model.module.load_state_dict(state_dict['model'])
         optimizer.load_state_dict(state_dict['optimizer'])
+        lr_scheduler.load_state_dict(state_dict['lr_scheduler'])
         starting_epoch = state_dict['epoch']
+        max_accuracy = state_dict['max_accuracy']
+        old_run_id = state_dict['run_id']
         print('resuming training with model: ', config.TRAIN.resume_model_path)
+        print('resuming experiment from: ', old_run_id)
 
     n_params = count_parameters(model)
     print(f'#params of the model: {n_params}')
@@ -189,7 +194,8 @@ def Main(args):
 
         epoch_time = time.time() - start
         print(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
-        max_accuracy = 0.0
+        if max_accuracy is None:
+            max_accuracy = 0.0
         #save model every 10 epochs before checkpoint_start_epoch
         if (epoch < config.MODEL.checkpoint_start_epoch) and (epoch % (config.MODEL.checkpoint_step*2) == 0):
             save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
