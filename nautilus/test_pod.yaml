@@ -8,7 +8,7 @@ spec:
     image: ubuntu
     volumeMounts:
     - mountPath: /project
-      name: segmentation-vol
+      name: data
     resources:
       limits:
         memory: 32Gi
@@ -22,10 +22,10 @@ spec:
       - |
         apt update && \
         apt install -y wget unzip python3 python3-pip git && \
-        pip3 install notebook && \
+        pip3 install notebook tqdm && \
         sleep infinity
 
   volumes:
-    - name: segmentation-vol
+    - name: data
       persistentVolumeClaim:
-        claimName: segmentation-vol
+        claimName: data-pvc

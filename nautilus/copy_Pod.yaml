@@ -1,37 +1,31 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: dual-mount-pod
+  name: copy-pod
 spec:
   containers:
-  - name: dual-mount-container
+  - name: copy-pod
     image: ubuntu
     volumeMounts:
     - mountPath: /project
-      name: segmentation-project-vol
-    - mountPath: /segmentation
-      name: segmentation-vol
+      name: data
     resources:
       limits:
-        memory: 16Gi
-        cpu: "2"
+        memory: 32Gi
+        cpu: "16"
       requests:
-        memory: 16Gi
-        cpu: "2"
+        memory: 32Gi
+        cpu: "16"
     command: 
       - "sh"
       - "-c"
       - |
         apt update && \
-        apt install -y wget unzip python3 python3-pip rsync && \
-        while [ ! -f /project/imagenet_zip/archive.zip ]; do sleep 1; done; \
-        rsync --progress /project/imagenet_zip/archive.zip /segmentation/ && \
+        apt install -y wget unzip python3 python3-pip git && \
+        pip3 install notebook && \
         sleep infinity
 
   volumes:
-  - name: segmentation-project-vol
-    persistentVolumeClaim:
-      claimName: segmentation-project-vol
-  - name: segmentation-vol
-    persistentVolumeClaim:
-      claimName: segmentation-vol
+    - name: data
+      persistentVolumeClaim:
+        claimName: data-pvc
