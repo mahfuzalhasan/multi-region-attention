@@ -34,17 +34,19 @@ spec:
 # ADE20K -- http://groups.csail.mit.edu/vision/datasets/ADE20K/syml/jawadefaj_3a74f768.zip
 # CITYSCAPES (gtFine_trainvaltest.zip) -- https://www.cityscapes-dataset.com/file-handling/?packageID=1
 # CITYSCAPES (leftImg8bit_trainvaltest.zip) -- https://www.cityscapes-dataset.com/file-handling/?packageID=3
-
+# Image net - https://storage.googleapis.com/kaggle-competitions-data/kaggle-v2/6799/4225553/bundle/archive.zip?GoogleAccessId=web-data@kaggle-161607.iam.gserviceaccount.com&Expires=1703535641&Signature=NpsafUzqAlBVdsA21sbd7Gi77yn1N0DGwXY7WL4GE7UiL1BpXfbKNcc4muQjtkY2aiGDjrtCCNBR7WEx61iJmLCy5bOync%2B9T8B4kiDcoZn%2FBxd2KiLb3tnLugAXZa58XJuxpcJYerDKjn2e2JryJVv8KAmu%2BgggPv4cGjuJrPqyTWp4jnoq5dmabJMDoS44OE8%2Bfi35HjpEE2iihJW12BPH1dHNBlkhCeBCQW3Qdn%2FsKexqbAmTCJr3WDNn0dlgun5Xlf5KND%2BWLN0lnSOanaP0bahEA2O0Z8tBttZ2uL%2BUgcZPA8G9%2FCyNW0ealfWxNvZqAbgXUAS7pQm2asiG%2FQ%3D%3D&response-content-disposition=attachment%3B+filename%3Dimagenet-object-localization-challenge.zip
 
 # Download commands:
 # wget -P /project 'http://groups.csail.mit.edu/vision/datasets/ADE20K/syml/jawadefaj_674ec4aa.zip' && \
 # wget -P /project/cityscapes/gt_Fine 'https://www.cityscapes-dataset.com/file-handling/?packageID=1' && \
 # wget -P /project/cityscapes/leftImg8bit 'https://www.cityscapes-dataset.com/file-handling/?packageID=3' && \
+# wget -P /project/imagenet 'https://storage.googleapis.com/kaggle-competitions-data/kaggle-v2/6799/4225553/bundle/archive.zip?GoogleAccessId=web-data@kaggle-161607.iam.gserviceaccount.com&Expires=1703535641&Signature=NpsafUzqAlBVdsA21sbd7Gi77yn1N0DGwXY7WL4GE7UiL1BpXfbKNcc4muQjtkY2aiGDjrtCCNBR7WEx61iJmLCy5bOync%2B9T8B4kiDcoZn%2FBxd2KiLb3tnLugAXZa58XJuxpcJYerDKjn2e2JryJVv8KAmu%2BgggPv4cGjuJrPqyTWp4jnoq5dmabJMDoS44OE8%2Bfi35HjpEE2iihJW12BPH1dHNBlkhCeBCQW3Qdn%2FsKexqbAmTCJr3WDNn0dlgun5Xlf5KND%2BWLN0lnSOanaP0bahEA2O0Z8tBttZ2uL%2BUgcZPA8G9%2FCyNW0ealfWxNvZqAbgXUAS7pQm2asiG%2FQ%3D%3D&response-content-disposition=attachment%3B+filename%3Dimagenet-object-localization-challenge.zip'
 
 
 # Unzip commands:
 # unzip /project/data/ade20k/jawadefaj_3a74f768.zip -d /project/ade20k && \
 # unzip /project/data/cityscapes/gt_Fine/gtFine_trainvaltest.zip -d /project/cityscapes/gt_Fine && \
 # unzip /project/data/cityscapes/gt_Fine/gtFine_trainvaltest.zip -d /project/cityscapes/gt_Fine && \
+# unzip /project/imagenet -d /project/imagenet_unzipped && \
 
 
