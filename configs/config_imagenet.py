@@ -19,14 +19,14 @@ remoteip = os.popen('pwd').read()
 C.SYSTEM.root_dir = os.getcwd()
 C.SYSTEM.abs_dir = osp.realpath(".")
 #C.SYSTEM.device_ids = [0] # for mahdi (lab-pc)
-# C.SYSTEM.device_ids = [0, 1] # for mahdi (newton)
-C.SYSTEM.device_ids = [0, 1, 2, 3] # for FICS
+C.SYSTEM.device_ids = [0, 1] # for mahdi (newton)
+# C.SYSTEM.device_ids = [0, 1, 2, 3] # for FICS
 
 
 """Dataset Config"""
 C.DATASET = edict()
 C.DATASET.name = 'imagenet'
-C.DATASET.root = osp.join(C.SYSTEM.root_dir, 'data/imagenet/ILSVRC/Data/CLS-LOC')
+C.DATASET.root = '/home/abjawad/Documents/GitHub/multi-region-attention/data/imagenet/ILSVRC/Data/CLS-LOC'
 # C.DATASET.DATA_PATH = osp.join(C.SYSTEM.root_dir, 'data/Cityscapes')
 C.DATASET.mode = 'RGB'
 # Input image size
@@ -42,7 +42,7 @@ C.DATASET.CACHE_MODE = 'part'
 
 ####################
 # Batch size for a single GPU, could be overwritten by command line argument
-C.DATASET.BATCH_SIZE = 200
+C.DATASET.BATCH_SIZE = 100
 # Path to dataset, could be overwritten by command line argument
 C.DATASET.DATA_PATH = ''
 # Dataset name

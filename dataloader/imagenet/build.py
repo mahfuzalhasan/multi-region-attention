@@ -15,8 +15,10 @@ from timm.data import Mixup
 from timm.data import create_transform
 # from timm.data.transforms import _pil_interp
 
-from .cached_image_folder import CachedImageFolder
 from .samplers import SubsetRandomSampler
+
+from datasets import load_dataset
+from .HFDataset import HFDataset
 
 
 def build_loader(config):
@@ -73,38 +75,35 @@ def build_loader(config):
     return dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn
 
 
+# def build_dataset(is_train, config):
+#     transform = build_transform(is_train, config)
+#     print("is_train: ",is_train)
+#     prefix = 'train' if is_train else 'val'
+#     root = os.path.join(config.DATASET.root, prefix)
+#     print("data root: ",root)
+
+#     dataset = datasets.ImageFolder(root, transform=transform)
+#     print('loader ', dataset.loader)
+#     print("completed -- ---- --- -- -- ")
+#     nb_classes = 1000
+#     print('type of dataset: ',type(dataset))
+#     return dataset, nb_classes
+
 def build_dataset(is_train, config):
     transform = build_transform(is_train, config)
-    if config.DATASET.name == 'imagenet':
-        prefix = 'train' if is_train else 'val'
-        if config.DATASET.ZIP_MODE:
-            from .zipdata import ZipData
-            if is_train:
-                datapath = os.path.join(config.DATASET.root, 'train.zip')
-                data_map = os.path.join(config.DATASET.root, 'train_map.txt')
-            else:
-                datapath = os.path.join(config.DATASET.root, 'val.zip')
-                data_map = os.path.join(config.DATASET.root, 'val_map.txt')
-            dataset = ZipData(
-                datapath, data_map,
-                transform
-            )
-        else:
-            
-            root = os.path.join(config.DATASET.root, prefix)
-            print("data root: ",root)
-            dataset = datasets.ImageFolder(root, transform=transform)
-            print("completed")
-            nb_classes = 1000
-    elif config.DATA.DATASET == 'imagewoof':
-        prefix = 'train' if is_train else 'val'
-        root = os.path.join(config.DATA.root, prefix)
-        dataset = datasets.ImageFolder(root, transform=transform)
-        nb_classes = 10
-    else:
-        raise NotImplementedError("We only support ImageNet Now.")
 
+    hf_dataset = load_dataset("imagenet-1k")
+
+    if is_train:
+        hf_dataset = hf_dataset['train']
+    else:
+        hf_dataset = hf_dataset['valid']
+    # Wrap Hugging Face dataset with PyTorch Dataset to apply transformations
+    dataset = HFDataset(hf_dataset, transform=transform)
+
+    nb_classes = 1000  # Number of classes for ImageNet
     return dataset, nb_classes
+
 
 
 def build_transform(is_train, config):
