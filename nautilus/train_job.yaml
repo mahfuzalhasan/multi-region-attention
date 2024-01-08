@@ -5,49 +5,55 @@ metadata:
 spec:
   template:
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: nvidia.com/gpu.product
+                operator: In
+                values:
+                - NVIDIA-RTX-A4000
+      restartPolicy: OnFailure
       containers:
         - name: gpu-container
           image: ubuntu
           volumeMounts:
-            - name: segmentation-project-vol
+            - name: data
               mountPath: /project
           resources:
             limits:
-              memory: "8Gi"
-              cpu: "4"
-              nvidia.com/gpu: "2"
+              memory: "64Gi"
+              cpu: "8"
+              nvidia.com/gpu: "8"
             requests:
-              memory: "8Gi"
-              cpu: "4"
-              nvidia.com/gpu: "2"
+              memory: "64Gi"
+              cpu: "8"
+              nvidia.com/gpu: "8"
           command:
             - "sh"
             - "-c"
             - |
               apt update && \
-              apt install -y git python3-pip && \
-              cd /opt/repo/multi-region-attention && \
-              pip3 install -r requirements.txt && \ 
+              apt install -y wget unzip python3 python3-pip git && \
+              pip3 install notebook tqdm jupyter && \
+              wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+              bash Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda && \
+              rm Miniconda3-latest-Linux-x86_64.sh && \
+              export PATH="/opt/conda/bin:$PATH" && \
+              conda init && \
+              conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch && \
+              pip install timm==0.9.7 && \
+              pip install easydict==1.10 && \
+              pip install datasets && \
+              pip install termcolor && \
               echo 'Commands executed successfully.' && \
-              sleep infinity
-      initContainers:
-        - name: init-clone-repo
-          image: alpine/git
-          args:
-            - clone
-            - --single-branch
-            - https://github.com/mahfuzalhasan/multi-region-attention
-            - /opt/repo/multi-region-attention
-          volumeMounts:
-            - name: git-repo
-              mountPath: /opt/repo
+              cd project/multi-region-attention && \
+              python3 train.py imagenet
       volumes:
-      - name: git-repo
-        emptyDir: {}
-      - name: segmentation-project-vol
-        persistentVolumeClaim:
-          claimName: segmentation-project-vol
-      restartPolicy: Never
+        - name: data
+          persistentVolumeClaim:
+            claimName: data-pvc
   backoffLimit: 1
 
 

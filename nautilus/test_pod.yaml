@@ -4,11 +4,11 @@ metadata:
   name: test-pod
 spec:
   containers:
-  - name: test-pod
+  - name: t-pod
     image: ubuntu
     volumeMounts:
     - mountPath: /project
-      name: data
+      name: project
     resources:
       limits:
         memory: 32Gi
@@ -22,10 +22,15 @@ spec:
       - |
         apt update && \
         apt install -y wget unzip python3 python3-pip git && \
-        pip3 install notebook tqdm && \
+        pip3 install notebook tqdm jupyter && \
+        # pip3 install torch torchvision torchaudio && \
+        # pip3 install timm==0.9.7 && \
+        # pip3 install easydict==1.10 && \
+        # pip3 install datasets && \
+        # pip3 install termcolor && \
+        echo '===========Commands executed successfully.==========' && \
         sleep infinity
-
   volumes:
-    - name: data
+    - name: project
       persistentVolumeClaim:
-        claimName: data-pvc
+        claimName: project-pvc

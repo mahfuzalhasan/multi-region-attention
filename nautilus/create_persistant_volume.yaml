@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: data-pvc
+  name: project-pvc
 spec:
   storageClassName: seaweedfs-storage-nvme
   accessModes:
