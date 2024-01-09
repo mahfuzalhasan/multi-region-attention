@@ -101,8 +101,8 @@ C.MODEL.pretrained_model = None #osp.join(C.SYSTEM.root_dir, 'pretrained/mit_b2_
 C.MODEL.heads = [3, 6, 12, 24]
 C.MODEL.decoder = 'ClassificationHead'#'MLPDecoder'
 C.MODEL.decoder_embed_dim = 768
-C.MODEL.checkpoint_start_epoch = 100
-C.MODEL.checkpoint_step = 5
+C.MODEL.checkpoint_start_epoch = 200
+C.MODEL.checkpoint_step = 25
 C.MODEL.NAME = 'mra_tiny'
 C.MODEL.LABEL_SMOOTHING = 0.1
 # Dropout rate
@@ -131,7 +131,7 @@ C.TRAIN.fix_bias = True
 C.TRAIN.bn_eps = 1e-3
 C.TRAIN.bn_momentum = 0.1
 C.TRAIN.train_print_stats = 400
-C.TRAIN.resume_train = True 
+C.TRAIN.resume_train = False 
 C.TRAIN.resume_model_path = osp.join(C.SYSTEM.root_dir, 'results/saved_models/12-29-23_2141/model_195.pth')
 
 # LR scheduler
@@ -160,7 +160,7 @@ C.EVAL.EVAL_PRINT_FREQ = 30
 """ Test """
 C.TEST = edict()
 # Whether to use center crop when testing
-C.TEST.CROP = False
+C.TEST.CROP = True
 
 """Path Config"""
 def add_path(path):
