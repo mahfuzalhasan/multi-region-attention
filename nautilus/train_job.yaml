@@ -46,14 +46,11 @@ spec:
               pip install timm==0.9.7 && \
               pip install easydict==1.10 && \
               pip install datasets && \
-              pip install termcolor && \
-              echo 'Commands executed successfully.' && \
-              cd project/multi-region-attention && \
-              python3 train.py imagenet
+              echo 'Commands executed successfully.'
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: data-pvc
+            claimName: project-pvc
   backoffLimit: 1
 
 

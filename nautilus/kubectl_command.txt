@@ -11,6 +11,7 @@
 
 -- delete: 
     kubectl delete job my-job
+     kubectl delete pods --all --force
 
 -- port forwarding
     kubectl port-forward test-pod 8888:8888
@@ -23,5 +24,7 @@
 -- check command history 
     kubectl exec <pod-name> -- ps aux
 
-download links:
+-- log 
+    kubectl logs seg-job
 
+ https://k8s.io/examples/pods/pod-nginx.yaml

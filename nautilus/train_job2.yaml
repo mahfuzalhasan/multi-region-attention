@@ -13,10 +13,10 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-GeForce-GTX-1080-Ti
+                - NVIDIA-GeForce-RTX-2080-Ti
       containers:
       - name: seg-container
-        image: gitlab-registry.nrp-nautilus.io/prp/jupyter-stack/tensorflow
+        image: ubuntu
         command:
           - sh
           - -c
@@ -29,26 +29,35 @@ spec:
             pip3 install easydict==1.10 && \
             pip3 install datasets && \
             pip3 install termcolor && \
-            echo '===========Commands executed successfully.==========' && \
-            cd /project/multi-region-attention && \
-            python3 train.py imagenet
+            pip3 install tensorboardX && \
+            pip3 install -U "huggingface_hub[cli]" && \
+            huggingface-cli login --token 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 && \
+            echo '===========installation successful=========='
+            mkdir /opt/repo && \
+            cp /project/multi-region-attention.zip /opt/repo && \
+            cd /opt/repo && \
+            unzip  multi-region-attention.zip && \
+            echo '===========unzip successfully=========='
+            cd multi-region-attention && \
+            python3 train.py imagenet && \
+            echo '===========training executed successfully=========='
         volumeMounts:
         - name: data
           mountPath: /project
         resources:
           limits:
             memory: 84Gi
-            cpu: "4"
-            nvidia.com/gpu: "2"
+            cpu: "10"
+            nvidia.com/gpu: "8"
           requests:
             memory: 84Gi
-            cpu: "4"
-            nvidia.com/gpu: "2"
+            cpu: "10"
+            nvidia.com/gpu: "8"
         securityContext:
           runAsUser: 0
       volumes:
       - name: data
         persistentVolumeClaim:
-          claimName: data-pvc
+          claimName: project-pvc
       restartPolicy: Never
-  backoffLimit: 1
+  backoffLimit: 0
