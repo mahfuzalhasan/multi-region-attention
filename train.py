@@ -113,7 +113,7 @@ def Main(args):
     print(f'#params of the model: {n_params}')
 
     start_time = time.time()
-    for epoch in range(starting_epoch, config.TRAIN.nepochs):
+    for epoch in range(starting_epoch, 6):
         model.train()
         optimizer.zero_grad()
         

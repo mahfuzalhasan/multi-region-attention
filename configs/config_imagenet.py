@@ -101,8 +101,8 @@ C.MODEL.pretrained_model = None #osp.join(C.SYSTEM.root_dir, 'pretrained/mit_b2_
 C.MODEL.heads = [3, 6, 12, 24]
 C.MODEL.decoder = 'ClassificationHead'#'MLPDecoder'
 C.MODEL.decoder_embed_dim = 768
-C.MODEL.checkpoint_start_epoch = 200
-C.MODEL.checkpoint_step = 25
+C.MODEL.checkpoint_start_epoch = 3
+C.MODEL.checkpoint_step = 1
 C.MODEL.NAME = 'mra_tiny'
 C.MODEL.LABEL_SMOOTHING = 0.1
 # Dropout rate
