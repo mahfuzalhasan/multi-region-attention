@@ -92,7 +92,7 @@ def build_loader(config):
 def build_dataset(is_train, config):
     transform = build_transform(is_train, config)
 
-    hf_dataset = load_dataset("imagenet-1k")
+    hf_dataset = load_dataset('Maysee/tiny-imagenet')
 
     if is_train:
         hf_dataset = hf_dataset['train']
