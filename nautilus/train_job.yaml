@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: segmentation-job
+  name: seg-job
 spec:
   template:
     spec:
@@ -13,45 +13,54 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-RTX-A4000
-      restartPolicy: OnFailure
+                - NVIDIA-GeForce-RTX-2080-Ti
       containers:
-        - name: gpu-container
-          image: ubuntu
-          volumeMounts:
-            - name: data
-              mountPath: /project
-          resources:
-            limits:
-              memory: "64Gi"
-              cpu: "8"
-              nvidia.com/gpu: "8"
-            requests:
-              memory: "64Gi"
-              cpu: "8"
-              nvidia.com/gpu: "8"
-          command:
-            - "sh"
-            - "-c"
-            - |
-              apt update && \
-              apt install -y wget unzip python3 python3-pip git && \
-              pip3 install notebook tqdm jupyter && \
-              wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-              bash Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda && \
-              rm Miniconda3-latest-Linux-x86_64.sh && \
-              export PATH="/opt/conda/bin:$PATH" && \
-              conda init && \
-              conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch && \
-              pip install timm==0.9.7 && \
-              pip install easydict==1.10 && \
-              pip install datasets && \
-              echo 'Commands executed successfully.'
-      volumes:
+      - name: seg-container
+        image: ubuntu
+        command:
+          - sh
+          - -c
+          - |
+            apt update && \
+            apt install -y wget unzip python3 python3-pip git && \
+            pip3 install notebook tqdm jupyter && \
+            pip3 install torch torchvision torchaudio && \
+            pip3 install timm==0.9.7 && \
+            pip3 install easydict==1.10 && \
+            pip3 install datasets && \
+            pip3 install termcolor && \
+            pip3 install tensorboardX && \
+            pip3 install -U "huggingface_hub[cli]" && \
+            huggingface-cli login --token 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 && \
+            echo '===========installation successful=========='
+            mkdir /opt/repo && \
+            cp /project/multi-region-attention.zip /opt/repo && \
+            cd /opt/repo && \
+            unzip  multi-region-attention.zip && \
+            echo '===========unzip successfully=========='
+            cd multi-region-attention && \
+            python3 train.py imagenet && \
+            echo '===========training executed successfully=========='
+        volumeMounts:
         - name: data
-          persistentVolumeClaim:
-            claimName: project-pvc
-  backoffLimit: 1
+          mountPath: /project
+        resources:
+          limits:
+            memory: 84Gi
+            cpu: "10"
+            nvidia.com/gpu: "8"
+          requests:
+            memory: 84Gi
+            cpu: "10"
+            nvidia.com/gpu: "8"
+        securityContext:
+          runAsUser: 0
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: project-pvc
+      restartPolicy: Never
+  backoffLimit: 0
 
 
 
@@ -68,6 +77,12 @@ spec:
 #   cd /opt/repo/multi-region-attention &&
 #   pip3 install -r requirements.txt &&
 #   cp -r models/* /project/models-pv/
+# apt-get update && \
+# apt-get install -y git && \
+# git clone https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/mra && \
+# apt update && \
+# echo 'Commands executed successfully.' && \
+# sleep infinity
 
 # cd /opt/repo/multi-region-attention && \
 # pip3 install -r requirements.txt && \

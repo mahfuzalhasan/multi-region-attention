@@ -27,4 +27,7 @@
 -- log 
     kubectl logs seg-job
 
+-- event 
+    kubectl get events --sort-by='.metadata.creationTimestamp'
+
  https://k8s.io/examples/pods/pod-nginx.yaml
