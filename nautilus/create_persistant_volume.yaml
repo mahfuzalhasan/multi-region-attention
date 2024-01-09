@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: segmentation-project-vol
+  name: project-pvc
 spec:
   storageClassName: seaweedfs-storage-nvme
   accessModes:
   - ReadWriteMany
   resources:
     requests:
-      storage: 200Gi
+      storage: 500Gi

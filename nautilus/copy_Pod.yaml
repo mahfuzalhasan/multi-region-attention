@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: copy-pod
+spec:
+  containers:
+  - name: copy-pod
+    image: ubuntu
+    volumeMounts:
+    - mountPath: /project
+      name: data
+    resources:
+      limits:
+        memory: 32Gi
+        cpu: "16"
+      requests:
+        memory: 32Gi
+        cpu: "16"
+    command: 
+      - "sh"
+      - "-c"
+      - |
+        apt update && \
+        apt install -y wget unzip python3 python3-pip git && \
+        pip3 install notebook && \
+        sleep infinity
+
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: data-pvc

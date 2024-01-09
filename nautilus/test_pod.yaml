@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+spec:
+  containers:
+  - name: t-pod
+    image: ubuntu
+    volumeMounts:
+    - mountPath: /project
+      name: project
+    resources:
+      limits:
+        memory: 32Gi
+        cpu: "16"
+      requests:
+        memory: 32Gi
+        cpu: "16"
+    command: 
+      - "sh"
+      - "-c"
+      - |
+        apt update && \
+        apt install -y wget unzip python3 python3-pip git && \
+        pip3 install notebook tqdm jupyter && \
+        pip3 install torch torchvision torchaudio && \
+        pip3 install timm==0.9.7 && \
+        pip3 install easydict==1.10 && \
+        pip3 install datasets && \
+        pip3 install termcolor && \
+        pip3 install -U "huggingface_hub[cli]" && \
+        huggingface-cli login --token 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 && \
+        # cd /project/multi-region-attention && \
+        # python3 train.py imagenet && \
+        echo '===========Commands executed successfully.==========' && \
+        sleep infinity
+  volumes:
+    - name: project
+      persistentVolumeClaim:
+        claimName: project-pvc
