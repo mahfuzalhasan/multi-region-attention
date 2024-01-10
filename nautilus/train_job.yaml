@@ -30,7 +30,7 @@ spec:
             pip3 install termcolor && \
             pip3 install tensorboardX && \
             pip3 install -U "huggingface_hub[cli]" && \
-            huggingface-cli login --token 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 && \
+            huggingface-cli login --token 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 && \
             apt-get update && \
             apt-get install -y git && \
             echo '===========installation successful==========' && \
@@ -49,10 +49,12 @@ spec:
           mountPath: /project
         resources:
           limits:
+            ephemeral-storage: "300Gi"
             memory: 84Gi
             cpu: "10"
             nvidia.com/gpu: "8"
           requests:
+            ephemeral-storage: "250Gi"
             memory: 84Gi
             cpu: "10"
             nvidia.com/gpu: "8"
