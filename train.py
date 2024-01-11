@@ -181,8 +181,8 @@ def Main(args):
                     f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                     f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                     f'mem {memory_used:.0f}MB')
-            # if idx%5==0:
-            #     break
+            if idx%5==0:
+                break
         t_loss = loss_meter.avg
         t_acc1 = acc1_meter.avg
         t_acc5 = acc5_meter.avg
