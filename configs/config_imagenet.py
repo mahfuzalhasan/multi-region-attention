@@ -102,8 +102,9 @@ C.MODEL.pretrained_model = None #osp.join(C.SYSTEM.root_dir, 'pretrained/mit_b2_
 C.MODEL.heads = [3, 6, 12, 24]
 C.MODEL.decoder = 'ClassificationHead'#'MLPDecoder'
 C.MODEL.decoder_embed_dim = 768
-C.MODEL.checkpoint_start_epoch = 3
-C.MODEL.checkpoint_step = 1
+C.MODEL.checkpoint_start_epoch = 200
+C.MODEL.checkpoint_step = 25
+C.MODEL.checkpoint_step_later = 10
 C.MODEL.NAME = 'mra_tiny'
 C.MODEL.LABEL_SMOOTHING = 0.1
 # Dropout rate
@@ -131,7 +132,7 @@ C.TRAIN.WEIGHT_DECAY = 0.05
 C.TRAIN.fix_bias = True
 C.TRAIN.bn_eps = 1e-3
 C.TRAIN.bn_momentum = 0.1
-C.TRAIN.train_print_stats = 400
+C.TRAIN.train_print_stats = 300
 C.TRAIN.resume_train = False 
 C.TRAIN.resume_model_path = osp.join(C.SYSTEM.root_dir, 'results/saved_models/12-29-23_2141/model_195.pth')
 
@@ -155,7 +156,7 @@ C.TRAIN.OPTIMIZER.MOMENTUM = 0.9
 
 """Eval Config"""
 C.EVAL = edict()
-C.EVAL.EVAL_PRINT_FREQ = 30
+C.EVAL.EVAL_PRINT_FREQ = 12
 
 
 """ Test """

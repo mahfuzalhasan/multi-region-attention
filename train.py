@@ -113,7 +113,7 @@ def Main(args):
     print(f'#params of the model: {n_params}')
 
     start_time = time.time()
-    for epoch in range(starting_epoch, 6):
+    for epoch in range(starting_epoch, config.TRAIN.nepochs):
         model.train()
         optimizer.zero_grad()
         
@@ -181,8 +181,8 @@ def Main(args):
                     f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                     f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                     f'mem {memory_used:.0f}MB')
-            if idx%5==0:
-                break
+            # if idx%5==0:
+            #     break
         t_loss = loss_meter.avg
         t_acc1 = acc1_meter.avg
         t_acc5 = acc5_meter.avg
@@ -204,13 +204,12 @@ def Main(args):
         if acc1 > max_accuracy:
             max_accuracy = max(max_accuracy, acc1)
             save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir, best=True)
-        #save model every 50 epochs before checkpoint_start_epoch = 200
-        if (epoch <= config.MODEL.checkpoint_start_epoch) and (epoch % (config.MODEL.checkpoint_step*2) == 0) and (epoch>0):
+        #save model every 25 epochs before checkpoint_start_epoch = 200
+        if (epoch <= config.MODEL.checkpoint_start_epoch) and (epoch % (config.MODEL.checkpoint_step) == 0) and (epoch>0):
             save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
-        #save model every 25 epochs after checkpoint_start_epoch=200. Save last one too. 
-        elif (epoch > config.MODEL.checkpoint_start_epoch) and (epoch % config.MODEL.checkpoint_step == 0) or (epoch == config.TRAIN.nepochs-1):
+        #save model every 10 epochs after checkpoint_start_epoch=200. Save last one too. 
+        elif (epoch > config.MODEL.checkpoint_start_epoch) and (epoch % config.MODEL.checkpoint_step_later == 0) or (epoch == config.TRAIN.nepochs-1):
             save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
-        
         model_save_time = time.time() - model_save_start
         print(f"EPOCH {epoch} model save takes {datetime.timedelta(seconds=int(model_save_time))}")
 
@@ -225,7 +224,7 @@ def Main(args):
         writer.add_scalar('train_acc_5', t_acc5, epoch)
         writer_time = time.time() - writer_start
         print(f"EPOCH {epoch} writer takes {datetime.timedelta(seconds=int(writer_time))}")
-        
+
         val_epoch_time = time.time() - start_val
         print(f"EPOCH {epoch} val takes {datetime.timedelta(seconds=int(val_epoch_time))}")
         print(f'\n ###### stats after epoch :{epoch} ######### \n')

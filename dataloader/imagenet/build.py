@@ -92,16 +92,16 @@ def build_loader(config):
 def build_dataset(is_train, config):
     transform = build_transform(is_train, config)
 
-    hf_dataset = load_dataset('Maysee/tiny-imagenet')
-
+    # hf_dataset = load_dataset('Maysee/tiny-imagenet')
+    hf_dataset = load_dataset('imagenet-1k')
     if is_train:
         hf_dataset = hf_dataset['train']
     else:
-        hf_dataset = hf_dataset['valid']
+        hf_dataset = hf_dataset['validation']
     # Wrap Hugging Face dataset with PyTorch Dataset to apply transformations
     dataset = HFDataset(hf_dataset, transform=transform)
 
-    nb_classes = 200  # Number of classes for ImageNet, 200 for tiny
+    nb_classes = 1000  # Number of classes for ImageNet, 200 for tiny
     return dataset, nb_classes
 
 
@@ -120,6 +120,7 @@ def build_transform(is_train, config):
             re_count=config.AUG.RECOUNT,
             interpolation=config.DATASET.INTERPOLATION,
         )
+        # print("transform: ",transform)
         if not resize_im:
             # replace RandomResizedCropAndInterpolation with
             # RandomCrop
@@ -142,4 +143,5 @@ def build_transform(is_train, config):
 
     t.append(transforms.ToTensor())
     t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
+    # print('imagenet mean and std: ',IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
     return transforms.Compose(t)
