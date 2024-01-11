@@ -13,7 +13,7 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-GeForce-RTX-2080-Ti
+                - NVIDIA-A100-SXM4-80GB
       containers:
       - name: seg-container
         image: ubuntu
@@ -22,8 +22,7 @@ spec:
           - -c
           - |
             apt update && \
-            apt install -y wget unzip python3 python3-pip git && \
-            pip3 install notebook tqdm jupyter && \
+            apt install -y python3 python3-pip && \
             pip3 install torch torchvision torchaudio && \
             pip3 install timm==0.9.7 && \
             pip3 install easydict==1.10 && \
@@ -31,27 +30,33 @@ spec:
             pip3 install termcolor && \
             pip3 install tensorboardX && \
             pip3 install -U "huggingface_hub[cli]" && \
-            huggingface-cli login --token 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 && \
-            echo '===========installation successful=========='
-            mkdir /opt/repo && \
-            cp /project/multi-region-attention.zip /opt/repo && \
-            cd /opt/repo && \
-            unzip  multi-region-attention.zip && \
-            echo '===========unzip successfully=========='
-            cd multi-region-attention && \
+            huggingface-cli login --token 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 && \
+            apt-get update && \
+            apt-get install -y git && \
+            echo '===========installation successful==========' && \
+            mkdir -p /opt/repo/multi-region-attention && \
+            git clone --single-branch --branch masked_attention https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
+            apt update && \
+            echo 'git pulled successfully.' && \
+            cd /opt/repo/multi-region-attention && \
             python3 train.py imagenet && \
-            echo '===========training executed successfully=========='
+            echo '===========training executed successfully==========' && \
+            # mkdir -p /project/results && \
+            cp -r /opt/repo/multi-region-attention/results  /project/ && \
+            echo '=========== copied models and logs successfully =========='
         volumeMounts:
         - name: data
           mountPath: /project
         resources:
           limits:
-            memory: 84Gi
-            cpu: "10"
+            ephemeral-storage: "1Ti"
+            memory: 128Gi
+            cpu: "32"
             nvidia.com/gpu: "8"
           requests:
+            ephemeral-storage: "250Gi"
             memory: 84Gi
-            cpu: "10"
+            cpu: "8"
             nvidia.com/gpu: "8"
         securityContext:
           runAsUser: 0

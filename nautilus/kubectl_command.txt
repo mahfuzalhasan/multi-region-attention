@@ -16,7 +16,6 @@
 -- port forwarding
     kubectl port-forward test-pod 8888:8888
     kubectl port-forward test-pod 8889:8889
-    kubectl port-forward test-pod 8890:8890
 
 -- jupyter 
     jupyter notebook --ip='0.0.0.0' --port=8888 --allow-root
@@ -29,5 +28,4 @@
 
 -- event 
     kubectl get events --sort-by='.metadata.creationTimestamp'
-
- https://k8s.io/examples/pods/pod-nginx.yaml
+    kubectl get events --watch --sort-by='.metadata.creationTimestamp'
