@@ -9,6 +9,8 @@ spec:
     volumeMounts:
     - mountPath: /project
       name: project
+    - mountPath: /dev/shm
+      name: dshm
     resources:
       limits:
         memory: 32Gi
@@ -21,20 +23,32 @@ spec:
       - "-c"
       - |
         apt update && \
-        apt install -y wget unzip python3 python3-pip git && \
-        pip3 install notebook tqdm jupyter && \
+        apt install -y python3 python3-pip && \
         pip3 install torch torchvision torchaudio && \
         pip3 install timm==0.9.7 && \
         pip3 install easydict==1.10 && \
         pip3 install datasets && \
         pip3 install termcolor && \
+        pip3 install tensorboardX && \
         pip3 install -U "huggingface_hub[cli]" && \
-        huggingface-cli login --token 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 && \
-        # cd /project/multi-region-attention && \
-        # python3 train.py imagenet && \
-        echo '===========Commands executed successfully.==========' && \
-        sleep infinity
+        huggingface-cli login --token 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 && \
+        apt-get update && \
+        apt-get install -y git && \
+        echo '===========installation successful==========' && \
+        mkdir -p /opt/repo/multi-region-attention && \
+        git clone --single-branch --branch masked_attention https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
+        apt update && \
+        echo 'git pulled successfully.' && \
+        cd /opt/repo/multi-region-attention && \
+        python3 train.py imagenet && \
+        echo '===========training executed successfully==========' && \
+        # mkdir -p /project/results && \
+        cp -r /opt/repo/multi-region-attention/results  /project/ && \
+        echo '=========== copied models and logs successfully =========='
   volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
     - name: project
       persistentVolumeClaim:
         claimName: project-pvc
