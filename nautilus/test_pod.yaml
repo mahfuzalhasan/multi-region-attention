@@ -3,6 +3,15 @@ kind: Pod
 metadata:
   name: test-pod
 spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: nvidia.com/gpu.product
+            operator: In
+            values:
+            - NVIDIA-A100-SXM4-80GB
   containers:
   - name: t-pod
     image: ubuntu
@@ -13,9 +22,11 @@ spec:
       limits:
         memory: 32Gi
         cpu: "16"
+        nvidia.com/gpu: 2
       requests:
         memory: 32Gi
         cpu: "16"
+        nvidia.com/gpu: 2
     command: 
       - "sh"
       - "-c"

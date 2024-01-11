@@ -13,7 +13,7 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-A100-SXM4-80GB
+                - NVIDIA-A100-80GB-PCIe
       containers:
       - name: seg-container
         image: ubuntu
@@ -47,12 +47,14 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /project
+        - name: dshm
+          mountPath: /dev/shm
         resources:
           limits:
             ephemeral-storage: "1Ti"
             memory: 128Gi
             cpu: "32"
-            nvidia.com/gpu: "8"
+            nvidia.com/gpu: "4"
           requests:
             ephemeral-storage: "500Gi"
             memory: 84Gi
@@ -61,6 +63,9 @@ spec:
         securityContext:
           runAsUser: 0
       volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
       - name: data
         persistentVolumeClaim:
           claimName: project-pvc
