@@ -13,7 +13,7 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-GeForce-RTX-2080-Ti
+                - NVIDIA-A100-SXM4-80GB
       containers:
       - name: seg-container
         image: ubuntu
@@ -30,7 +30,7 @@ spec:
             pip3 install termcolor && \
             pip3 install tensorboardX && \
             pip3 install -U "huggingface_hub[cli]" && \
-            huggingface-cli login --token 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 && \
+            huggingface-cli login --token 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 && \
             apt-get update && \
             apt-get install -y git && \
             echo '===========installation successful==========' && \
@@ -49,14 +49,14 @@ spec:
           mountPath: /project
         resources:
           limits:
-            ephemeral-storage: "300Gi"
-            memory: 84Gi
-            cpu: "10"
+            ephemeral-storage: "1Ti"
+            memory: 128Gi
+            cpu: "32"
             nvidia.com/gpu: "8"
           requests:
             ephemeral-storage: "250Gi"
             memory: 84Gi
-            cpu: "10"
+            cpu: "8"
             nvidia.com/gpu: "8"
         securityContext:
           runAsUser: 0
