@@ -20,8 +20,8 @@ C.SYSTEM.root_dir = os.getcwd()
 C.SYSTEM.abs_dir = osp.realpath(".")
 #C.SYSTEM.device_ids = [0] # for mahdi (lab-pc)
 # C.SYSTEM.device_ids = [0, 1] # for mahdi (newton)
-C.SYSTEM.device_ids = [0, 1, 2, 3] # for FICS
-# C.SYSTEM.device_ids = [0, 1, 2, 3, 4, 5, 6, 7] # for nautilus
+# C.SYSTEM.device_ids = [0, 1, 2, 3] # for FICS
+C.SYSTEM.device_ids = [0, 1, 2, 3, 4, 5, 6, 7] # for nautilus
 
 
 """Dataset Config"""
@@ -43,7 +43,7 @@ C.DATASET.CACHE_MODE = 'part'
 
 ####################
 # Batch size for a single GPU, could be overwritten by command line argument
-C.DATASET.BATCH_SIZE = 100
+C.DATASET.BATCH_SIZE = 1024
 # Path to dataset, could be overwritten by command line argument
 C.DATASET.DATA_PATH = ''
 # Dataset name

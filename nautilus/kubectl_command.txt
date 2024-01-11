@@ -29,3 +29,9 @@
 -- event 
     kubectl get events --sort-by='.metadata.creationTimestamp'
     kubectl get events --watch --sort-by='.metadata.creationTimestamp'
+
+
+-- working
+    conda install pytorch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 pytorch-cuda=11.7 -c pytorch -c nvidia or pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117
+    pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+    conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia

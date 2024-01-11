@@ -13,7 +13,7 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-A100-80GB-PCIe
+                - NVIDIA-RTX-A6000
       containers:
       - name: seg-container
         image: ubuntu
@@ -23,7 +23,7 @@ spec:
           - |
             apt update && \
             apt install -y python3 python3-pip && \
-            pip3 install torch torchvision torchaudio && \
+            pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
             pip3 install timm==0.9.7 && \
             pip3 install easydict==1.10 && \
             pip3 install datasets && \
@@ -51,15 +51,15 @@ spec:
           mountPath: /dev/shm
         resources:
           limits:
-            ephemeral-storage: "1Ti"
+            ephemeral-storage: "700Gi"
             memory: 128Gi
-            cpu: "32"
-            nvidia.com/gpu: "4"
+            cpu: "20"
+            nvidia.com/gpu: "8"
           requests:
-            ephemeral-storage: "500Gi"
+            ephemeral-storage: "700Gi"
             memory: 84Gi
-            cpu: "8"
-            nvidia.com/gpu: "4"
+            cpu: "10"
+            nvidia.com/gpu: "8"
         securityContext:
           runAsUser: 0
       volumes:
