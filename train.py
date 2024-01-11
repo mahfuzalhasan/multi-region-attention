@@ -189,15 +189,21 @@ def Main(args):
         print(f' Training::::: Acc@1 {t_acc1:.3f} Acc@5 {t_acc5:.3f}')
         training_max_acc = 0.0
         training_max_acc = max(training_max_acc, t_acc1)
-        writer.add_scalar('train_max_acc', training_max_acc, epoch)
-        writer.add_scalar('train_loss', t_loss, epoch)
-        writer.add_scalar('train_acc_1', t_acc1, epoch)
-        writer.add_scalar('train_acc_5', t_acc5, epoch)
 
         epoch_time = time.time() - start
         print(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
         if max_accuracy is None:
             max_accuracy = 0.0
+        
+        start_val = time.time()
+        with torch.no_grad():
+            acc1, acc5, v_loss = validation(epoch, data_loader_val, model, config)
+        
+        # Save model with best accuracy as model_best
+        model_save_start = time.time()
+        if acc1 > max_accuracy:
+            max_accuracy = max(max_accuracy, acc1)
+            save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir, best=True)
         #save model every 50 epochs before checkpoint_start_epoch = 200
         if (epoch <= config.MODEL.checkpoint_start_epoch) and (epoch % (config.MODEL.checkpoint_step*2) == 0) and (epoch>0):
             save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
@@ -205,19 +211,21 @@ def Main(args):
         elif (epoch > config.MODEL.checkpoint_start_epoch) and (epoch % config.MODEL.checkpoint_step == 0) or (epoch == config.TRAIN.nepochs-1):
             save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
         
-        start_val = time.time()
-        with torch.no_grad():
-            acc1, acc5, v_loss = validation(epoch, data_loader_val, model, config)
-        
-        # Save model with best accuracy as model_best
-        if acc1 > max_accuracy:
-            max_accuracy = max(max_accuracy, acc1)
-            save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir, best=True)
+        model_save_time = time.time() - model_save_start
+        print(f"EPOCH {epoch} model save takes {datetime.timedelta(seconds=int(model_save_time))}")
 
+        writer_start = time.time()
         writer.add_scalar('val_max_acc', max_accuracy, epoch)   
         writer.add_scalar('val_loss', v_loss, epoch)
         writer.add_scalar('val_acc_1', acc1, epoch)
         writer.add_scalar('val_acc_5', acc5, epoch)
+        writer.add_scalar('train_max_acc', training_max_acc, epoch)
+        writer.add_scalar('train_loss', t_loss, epoch)
+        writer.add_scalar('train_acc_1', t_acc1, epoch)
+        writer.add_scalar('train_acc_5', t_acc5, epoch)
+        writer_time = time.time() - writer_start
+        print(f"EPOCH {epoch} writer takes {datetime.timedelta(seconds=int(writer_time))}")
+        
         val_epoch_time = time.time() - start_val
         print(f"EPOCH {epoch} val takes {datetime.timedelta(seconds=int(val_epoch_time))}")
         print(f'\n ###### stats after epoch :{epoch} ######### \n')
