@@ -101,7 +101,7 @@ def build_dataset(is_train, config):
     # Wrap Hugging Face dataset with PyTorch Dataset to apply transformations
     dataset = HFDataset(hf_dataset, transform=transform)
 
-    nb_classes = 1000  # Number of classes for ImageNet
+    nb_classes = 200  # Number of classes for ImageNet
     return dataset, nb_classes
 
 

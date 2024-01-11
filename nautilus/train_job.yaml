@@ -54,10 +54,10 @@ spec:
             cpu: "32"
             nvidia.com/gpu: "8"
           requests:
-            ephemeral-storage: "250Gi"
+            ephemeral-storage: "500Gi"
             memory: 84Gi
             cpu: "8"
-            nvidia.com/gpu: "8"
+            nvidia.com/gpu: "4"
         securityContext:
           runAsUser: 0
       volumes:
