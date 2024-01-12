@@ -1,0 +1,11 @@
+## Download imagenet directly from kaggle 
+
+1. Install kaggle ---->
+$ pip3 install kaggle
+
+2. Download kaggle api key from kaggle.com -> Settings -> API. Copy it to ~/.kaggle/kaggle.json ---->
+    (example shown for kubernetes pod)
+$ kubectl cp <path-to-kaggle.json> <namespace>/<pod-name>:/root/.kaggle/kaggle.json
+
+3. Download dataset using kaggle API
+$ kaggle competitions download -c imagenet-object-localization-challenge
