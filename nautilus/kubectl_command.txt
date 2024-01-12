@@ -1,17 +1,28 @@
 
--- create:
+-- create: 
     kubectl apply -f .\train_pod.yaml
+    (similar for creating persistent volume / pod / job)
 
--- get into bash:
+-- get into bash on a running pod/job:
     kubectl exec -it job-name -- /bin/bash
 
 -- get:
     kubectl get pods
     kubectl get pvc    
 
+-- copy files from persistent volume to local:
+    kubectl cp <namespace>/<pod-name>:/<path-to-file> <path-to-local>
+
 -- delete: 
     kubectl delete job my-job
      kubectl delete pods --all --force
+
+-- log 
+    kubectl logs seg-job
+
+-- event 
+    kubectl get events --sort-by='.metadata.creationTimestamp'
+    kubectl get events --watch --sort-by='.metadata.creationTimestamp'
 
 -- port forwarding
     kubectl port-forward test-pod 8888:8888
@@ -23,15 +34,8 @@
 -- check command history 
     kubectl exec <pod-name> -- ps aux
 
--- log 
-    kubectl logs seg-job
-
--- event 
-    kubectl get events --sort-by='.metadata.creationTimestamp'
-    kubectl get events --watch --sort-by='.metadata.creationTimestamp'
-
-
 -- working
     conda install pytorch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 pytorch-cuda=11.7 -c pytorch -c nvidia or pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117
     pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
     conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+
