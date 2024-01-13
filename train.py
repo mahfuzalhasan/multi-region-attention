@@ -5,16 +5,13 @@ import datetime
 import numpy as np
 import sys
 
-import torch
-import torch.backends.cudnn as cudnn
-import torch.distributed as dist
+
 
 
 
 import torch
 from  torch.utils.data import DataLoader
 import torch.nn as nn
-import torch.distributed as dist
 import torch.backends.cudnn as cudnn
 from torch.nn.parallel import DistributedDataParallel, DataParallel
 
@@ -51,13 +48,14 @@ def Main(args):
     else:
         raise NotImplementedError
     
-    world_size = len(config.SYSTEM.device_ids)
-    rank = 0
-    torch.cuda.set_device(config.LOCAL_RANK)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-    torch.distributed.barrier()
-    print(f'rank from dist: {dist.get_rank()}')
-    seed = config.SEED + dist.get_rank()
+    # world_size = len(config.SYSTEM.device_ids)
+    # rank = 0
+    # torch.cuda.set_device(config.LOCAL_RANK)
+    # torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+    # torch.distributed.barrier()
+    # print(f'rank from dist: {dist.get_rank()}')
+    # seed = config.SEED + dist.get_rank()
+    seed = config.SEED
     torch.manual_seed(seed)
     np.random.seed(seed)
     cudnn.benchmark = True
@@ -72,19 +70,6 @@ def Main(args):
         os.makedirs(save_log)
     writer = SummaryWriter(save_log)
 
-    world_size = len(config.SYSTEM.device_ids)
-    rank = 0
-    torch.cuda.set_device(config.LOCAL_RANK)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-    torch.distributed.barrier()
-    print(f'rank from dist: {dist.get_rank()}')
-    seed = config.SEED + dist.get_rank()
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    cudnn.benchmark = True
-
-    cudnn.benchmark = True
-    seed = config.SYSTEM.seed
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
@@ -99,12 +84,12 @@ def Main(args):
         criterion = torch.nn.CrossEntropyLoss()
 
     model=segmodel(cfg=config, criterion=criterion, norm_layer=nn.BatchNorm2d)
-    model.cuda()
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False)
+    # model.cuda()
+    # model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False)
 
-    config.TRAIN.BASE_LR = config.TRAIN.BASE_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
-    config.TRAIN.WARMUP_LR = config.TRAIN.WARMUP_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
-    config.TRAIN.MIN_LR = config.TRAIN.MIN_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
+    # config.TRAIN.BASE_LR = config.TRAIN.BASE_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
+    # config.TRAIN.WARMUP_LR = config.TRAIN.WARMUP_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
+    # config.TRAIN.MIN_LR = config.TRAIN.MIN_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
 
     def count_parameters(model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -128,8 +113,8 @@ def Main(args):
 
     
     
-    # model = nn.DataParallel(model, device_ids = config.SYSTEM.device_ids)
-    # model.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
+    model = nn.DataParallel(model, device_ids = config.SYSTEM.device_ids)
+    model.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
 
     print(f'############ begin training ################# \n')
 
@@ -240,14 +225,14 @@ def Main(args):
         
         # Save model with best accuracy as model_best
         model_save_start = time.time()
-        if acc1 > max_accuracy and dist.get_rank() == 0:
+        if acc1 > max_accuracy:
             max_accuracy = max(max_accuracy, acc1)
             save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir, best=True)
         #save model every 25 epochs before checkpoint_start_epoch = 200
-        if dist.get_rank() == 0 and (epoch <= config.MODEL.checkpoint_start_epoch) and (epoch % (config.MODEL.checkpoint_step) == 0) and (epoch>0):
+        if (epoch <= config.MODEL.checkpoint_start_epoch) and (epoch % (config.MODEL.checkpoint_step) == 0) and (epoch>0):
             save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
         #save model every 10 epochs after checkpoint_start_epoch=200. Save last one too. 
-        elif dist.get_rank() == 0 and (epoch > config.MODEL.checkpoint_start_epoch) and (epoch % config.MODEL.checkpoint_step_later == 0) or (epoch == config.TRAIN.nepochs-1):
+        elif (epoch > config.MODEL.checkpoint_start_epoch) and (epoch % config.MODEL.checkpoint_step_later == 0) or (epoch == config.TRAIN.nepochs-1):
             save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
         model_save_time = time.time() - model_save_start
         print(f"EPOCH {epoch} model save takes {datetime.timedelta(seconds=int(model_save_time))}")
@@ -299,5 +284,5 @@ if __name__=='__main__':
 
     args = parser.parse_args()
 
-    os.environ['MASTER_PORT'] = '169710'
+    # os.environ['MASTER_PORT'] = '169710'
     Main(args)

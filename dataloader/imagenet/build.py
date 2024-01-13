@@ -25,31 +25,32 @@ def build_loader(config):
     # config.defrost()
     dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config)
     # config.freeze()
-    print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
+    # print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
     dataset_val, _ = build_dataset(is_train=False, config=config)
-    print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
+    # print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
 
-    num_tasks = dist.get_world_size()
-    global_rank = dist.get_rank()
+    # num_tasks = dist.get_world_size()
+    # global_rank = dist.get_rank()
 
-    print(f'num task:{num_tasks} global_rank:{global_rank}')
+    # print(f'num task:{num_tasks} global_rank:{global_rank}')
 
     # num_tasks = 4
     # global_rank = 0
-    if config.DATASET.ZIP_MODE and config.DATASET.CACHE_MODE == 'part':
-        indices = np.arange(dist.get_rank(), len(dataset_train), dist.get_world_size())
-        sampler_train = SubsetRandomSampler(indices)
-    else:
-        sampler_train = torch.utils.data.DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
-        )
+    # if config.DATASET.ZIP_MODE and config.DATASET.CACHE_MODE == 'part':
+    #     indices = np.arange(dist.get_rank(), len(dataset_train), dist.get_world_size())
+    #     sampler_train = SubsetRandomSampler(indices)
+    # else:
+    #     sampler_train = torch.utils.data.DistributedSampler(
+    #         dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+    #     )
 
-    indices = np.arange(dist.get_rank(), len(dataset_val), dist.get_world_size())
-    # indices = np.arange(global_rank, len(dataset_val), num_tasks)
-    sampler_val = SubsetRandomSampler(indices)
+    # indices = np.arange(dist.get_rank(), len(dataset_val), dist.get_world_size())
+    # # indices = np.arange(global_rank, len(dataset_val), num_tasks)
+    # sampler_val = SubsetRandomSampler(indices)
 
     data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=sampler_train,
+        dataset_train,
+        shuffle=True, 
         batch_size=config.DATASET.BATCH_SIZE,
         num_workers=config.DATASET.NUM_WORKERS,
         pin_memory=config.DATASET.PIN_MEMORY,
@@ -57,7 +58,7 @@ def build_loader(config):
     )
 
     data_loader_val = torch.utils.data.DataLoader(
-        dataset_val, sampler=sampler_val,
+        dataset_val,
         batch_size=config.DATASET.BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATASET.NUM_WORKERS,
@@ -78,33 +79,33 @@ def build_loader(config):
     return dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn
 
 
-def build_dataset(is_train, config):
-    transform = build_transform(is_train, config)
-    print("is_train: ",is_train)
-    prefix = 'train' if is_train else 'val'
-    root = os.path.join(config.DATASET.root, prefix)
-    print("data root: ",root)
-
-    dataset = datasets.ImageFolder(root, transform=transform)
-    print('loader ', dataset.loader)
-    print("completed -- ---- --- -- -- ")
-    nb_classes = 1000
-    print('type of dataset: ',type(dataset))
-    return dataset, nb_classes
-
 # def build_dataset(is_train, config):
 #     transform = build_transform(is_train, config)
+#     print("is_train: ",is_train)
+#     prefix = 'train' if is_train else 'val'
+#     root = os.path.join(config.DATASET.root, prefix)
+#     print("data root: ",root)
 
-#     hf_dataset = load_dataset('Maysee/tiny-imagenet')
-#     # hf_dataset = load_dataset('imagenet-1k')
-#     if is_train:
-#         hf_dataset = hf_dataset['train']
-#     else:
-#         hf_dataset = hf_dataset['validation']
-#     # Wrap Hugging Face dataset with PyTorch Dataset to apply transformations
-#     dataset = HFDataset(hf_dataset, transform=transform)
-#     nb_classes = 200  # Number of classes for ImageNet, 200 for tiny
+#     dataset = datasets.ImageFolder(root, transform=transform)
+#     print('loader ', dataset.loader)
+#     print("completed -- ---- --- -- -- ")
+#     nb_classes = 1000
+#     print('type of dataset: ',type(dataset))
 #     return dataset, nb_classes
+
+def build_dataset(is_train, config):
+    transform = build_transform(is_train, config)
+
+    hf_dataset = load_dataset('Maysee/tiny-imagenet')
+    # hf_dataset = load_dataset('imagenet-1k')
+    if is_train:
+        hf_dataset = hf_dataset['train']
+    else:
+        hf_dataset = hf_dataset['validation']
+    # Wrap Hugging Face dataset with PyTorch Dataset to apply transformations
+    dataset = HFDataset(hf_dataset, transform=transform)
+    nb_classes = 200  # Number of classes for ImageNet, 200 for tiny
+    return dataset, nb_classes
 
 
 
