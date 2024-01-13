@@ -131,7 +131,8 @@ def Main(args):
         for idx, (samples, targets) in enumerate(data_loader_train):
             samples = samples.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
             targets = targets.to(f'cuda:{model.device_ids[0]}', non_blocking=True) 
-            # print(f'target initial: {targets.size()}') 
+            print(f'target initial: {targets.size()} sample:{samples.size()}') 
+            
             initial_targets = targets.clone()
             if mixup_fn is not None:
                 samples, targets = mixup_fn(samples, targets)

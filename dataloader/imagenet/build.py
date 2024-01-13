@@ -92,16 +92,15 @@ def build_loader(config):
 def build_dataset(is_train, config):
     transform = build_transform(is_train, config)
 
-    # hf_dataset = load_dataset('Maysee/tiny-imagenet')
-    hf_dataset = load_dataset('imagenet-1k')
+    hf_dataset = load_dataset('Maysee/tiny-imagenet')
+    # hf_dataset = load_dataset('imagenet-1k')
     if is_train:
         hf_dataset = hf_dataset['train']
     else:
         hf_dataset = hf_dataset['validation']
     # Wrap Hugging Face dataset with PyTorch Dataset to apply transformations
     dataset = HFDataset(hf_dataset, transform=transform)
-
-    nb_classes = 1000  # Number of classes for ImageNet, 200 for tiny
+    nb_classes = 200  # Number of classes for ImageNet, 200 for tiny
     return dataset, nb_classes
 
 

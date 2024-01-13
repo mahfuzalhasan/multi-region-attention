@@ -40,10 +40,7 @@ spec:
             echo 'git pulled successfully.' && \
             cd /opt/repo/multi-region-attention && \
             python3 train.py imagenet && \
-            echo '===========training executed successfully==========' && \
-            # mkdir -p /project/results && \
-            cp -r /opt/repo/multi-region-attention/results  /project/ && \
-            echo '=========== copied models and logs successfully =========='
+            echo '===========training executed successfully=========='
         volumeMounts:
         - name: data
           mountPath: /project
@@ -52,12 +49,12 @@ spec:
         resources:
           limits:
             ephemeral-storage: "700Gi"
-            memory: 128Gi
+            memory: 200Gi
             cpu: "10"
             nvidia.com/gpu: "7"
           requests:
             ephemeral-storage: "700Gi"
-            memory: 84Gi
+            memory: 200Gi
             cpu: "8"
             nvidia.com/gpu: "7"
         securityContext:
