@@ -44,8 +44,13 @@ def Main(args):
     run_id = datetime.datetime.today().strftime('%m-%d-%y_%H%M')
     print(f'$$$$$$$$$$$$$ run_id:{run_id} $$$$$$$$$$$$$')
     
-
-
+    config_filename = args.config.split('/')[-1].split('.')[0] 
+    print('cnfig_filename: ',config_filename)    
+    if config_filename == 'imagenet':
+        from configs.config_imagenet import config
+    else:
+        raise NotImplementedError
+    
     world_size = len(config.SYSTEM.device_ids)
     rank = 0
     torch.cuda.set_device(config.LOCAL_RANK)
@@ -57,14 +62,8 @@ def Main(args):
     np.random.seed(seed)
     cudnn.benchmark = True
 
-    config_filename = args.config.split('/')[-1].split('.')[0] 
-    print('cnfig_filename: ',config_filename)    
-    if config_filename == 'imagenet':
-        from configs.config_imagenet import config
-        dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
-    else:
-        raise NotImplementedError
-    
+    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
+
     print(f"\n #training:{len(dataset_train)} #val:{len(dataset_val)}")
     print(f"\n it in one epoch: len_dl::: train:{len(data_loader_train)} val:{len(data_loader_val)}")
     print(f"\n batch size:{config.DATASET.BATCH_SIZE} \n")
@@ -72,6 +71,17 @@ def Main(args):
     if not os.path.exists(save_log):
         os.makedirs(save_log)
     writer = SummaryWriter(save_log)
+
+    world_size = len(config.SYSTEM.device_ids)
+    rank = 0
+    torch.cuda.set_device(config.LOCAL_RANK)
+    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+    torch.distributed.barrier()
+    print(f'rank from dist: {dist.get_rank()}')
+    seed = config.SEED + dist.get_rank()
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    cudnn.benchmark = True
 
     cudnn.benchmark = True
     seed = config.SYSTEM.seed
