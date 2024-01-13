@@ -13,7 +13,7 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-RTX-A6000
+                - NVIDIA-A100-SXM4-80GB
       containers:
       - name: seg-container
         image: ubuntu
@@ -49,14 +49,14 @@ spec:
         resources:
           limits:
             ephemeral-storage: "700Gi"
-            memory: 220Gi
-            cpu: "10"
-            nvidia.com/gpu: "7"
+            memory: 300Gi
+            cpu: "30"
+            nvidia.com/gpu: "4"
           requests:
             ephemeral-storage: "700Gi"
-            memory: 220Gi
-            cpu: "8"
-            nvidia.com/gpu: "7"
+            memory: 300Gi
+            cpu: "15"
+            nvidia.com/gpu: "4"
         securityContext:
           runAsUser: 0
       volumes:

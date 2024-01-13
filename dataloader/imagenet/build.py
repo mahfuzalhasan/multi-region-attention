@@ -101,7 +101,7 @@ def build_dataset(is_train, config):
     if is_train:
         hf_dataset = hf_dataset['train']
     else:
-        hf_dataset = hf_dataset['validation']
+        hf_dataset = hf_dataset['valid']
     # Wrap Hugging Face dataset with PyTorch Dataset to apply transformations
     dataset = HFDataset(hf_dataset, transform=transform)
     nb_classes = 200  # Number of classes for ImageNet, 200 for tiny
