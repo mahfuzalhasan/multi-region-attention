@@ -35,7 +35,7 @@ spec:
             apt-get install -y git && \
             echo '===========installation successful==========' && \
             mkdir -p /opt/repo/multi-region-attention && \
-            git clone --single-branch --branch masked_attention https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
+            git clone --single-branch --branch DP_Training https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
             apt update && \
             echo 'git pulled successfully.' && \
             cd /opt/repo/multi-region-attention && \
@@ -49,14 +49,14 @@ spec:
         resources:
           limits:
             ephemeral-storage: "700Gi"
-            memory: 200Gi
+            memory: 220Gi
             cpu: "10"
-            nvidia.com/gpu: "6"
+            nvidia.com/gpu: "7"
           requests:
             ephemeral-storage: "700Gi"
-            memory: 200Gi
+            memory: 220Gi
             cpu: "8"
-            nvidia.com/gpu: "6"
+            nvidia.com/gpu: "7"
         securityContext:
           runAsUser: 0
       volumes:
