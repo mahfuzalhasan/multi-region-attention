@@ -21,7 +21,7 @@ C.SYSTEM.abs_dir = osp.realpath(".")
 #C.SYSTEM.device_ids = [0] # for mahdi (lab-pc)
 # C.SYSTEM.device_ids = [0, 1] # for mahdi (newton)
 # C.SYSTEM.device_ids = [0, 1, 2, 3] # for FICS
-C.SYSTEM.device_ids = [0, 1, 2, 3] # for nautilus
+C.SYSTEM.device_ids = [0, 1, 2, 3, 4] # for nautilus
 
 
 """Dataset Config"""

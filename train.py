@@ -112,7 +112,7 @@ def Main(args):
     
 
     
-    
+    print(config.SYSTEM.device_ids)
     model = nn.DataParallel(model, device_ids = config.SYSTEM.device_ids)
     model.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
 

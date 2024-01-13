@@ -13,7 +13,7 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-A100-SXM4-80GB
+                - NVIDIA-RTX-A6000
       containers:
       - name: seg-container
         image: ubuntu
@@ -48,15 +48,15 @@ spec:
           mountPath: /dev/shm
         resources:
           limits:
-            ephemeral-storage: "700Gi"
-            memory: 300Gi
-            cpu: "30"
-            nvidia.com/gpu: "4"
+            ephemeral-storage: "900Gi"
+            memory: 200Gi
+            cpu: "10"
+            nvidia.com/gpu: "5"
           requests:
-            ephemeral-storage: "700Gi"
-            memory: 300Gi
-            cpu: "15"
-            nvidia.com/gpu: "4"
+            ephemeral-storage: "900Gi"
+            memory: 200Gi
+            cpu: "8"
+            nvidia.com/gpu: "5"
         securityContext:
           runAsUser: 0
       volumes:
@@ -67,7 +67,7 @@ spec:
         persistentVolumeClaim:
           claimName: project-pvc
       restartPolicy: Never
-  backoffLimit: 0
+  backoffLimit: 1
 
 
 
