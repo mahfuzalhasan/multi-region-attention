@@ -43,7 +43,7 @@ C.DATASET.CACHE_MODE = 'part'
 
 ####################
 # Batch size for a single GPU, could be overwritten by command line argument
-C.DATASET.BATCH_SIZE = 256
+C.DATASET.BATCH_SIZE = 200
 # Path to dataset, could be overwritten by command line argument
 C.DATASET.DATA_PATH = ''
 # Dataset name

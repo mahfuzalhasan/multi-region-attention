@@ -152,8 +152,10 @@ def val_imagenet(epoch, data_loader, model, config):
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
-        images = images.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
-        target = target.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
+        # images = images.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
+        # target = target.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
+        images = images.to('cuda', non_blocking=True)
+        target = target.to('cuda', non_blocking=True)
 
         # compute output
         output = model(images)

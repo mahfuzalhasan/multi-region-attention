@@ -17,7 +17,7 @@ from timm.data import create_transform
 
 from .samplers import SubsetRandomSampler
 
-# from datasets import load_dataset
+from datasets import load_dataset
 from .HFDataset import HFDataset
 
 
@@ -78,33 +78,33 @@ def build_loader(config):
     return dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn
 
 
-def build_dataset(is_train, config):
-    transform = build_transform(is_train, config)
-    print("is_train: ",is_train)
-    prefix = 'train' if is_train else 'val'
-    root = os.path.join(config.DATASET.root, prefix)
-    print("data root: ",root)
-
-    dataset = datasets.ImageFolder(root, transform=transform)
-    print('loader ', dataset.loader)
-    print("completed -- ---- --- -- -- ")
-    nb_classes = 1000
-    print('type of dataset: ',type(dataset))
-    return dataset, nb_classes
-
 # def build_dataset(is_train, config):
 #     transform = build_transform(is_train, config)
+#     print("is_train: ",is_train)
+#     prefix = 'train' if is_train else 'val'
+#     root = os.path.join(config.DATASET.root, prefix)
+#     print("data root: ",root)
 
-#     hf_dataset = load_dataset('Maysee/tiny-imagenet')
-#     # hf_dataset = load_dataset('imagenet-1k')
-#     if is_train:
-#         hf_dataset = hf_dataset['train']
-#     else:
-#         hf_dataset = hf_dataset['validation']
-#     # Wrap Hugging Face dataset with PyTorch Dataset to apply transformations
-#     dataset = HFDataset(hf_dataset, transform=transform)
-#     nb_classes = 200  # Number of classes for ImageNet, 200 for tiny
+#     dataset = datasets.ImageFolder(root, transform=transform)
+#     print('loader ', dataset.loader)
+#     print("completed -- ---- --- -- -- ")
+#     nb_classes = 1000
+#     print('type of dataset: ',type(dataset))
 #     return dataset, nb_classes
+
+def build_dataset(is_train, config):
+    transform = build_transform(is_train, config)
+
+    hf_dataset = load_dataset('Maysee/tiny-imagenet')
+    # hf_dataset = load_dataset('imagenet-1k')
+    if is_train:
+        hf_dataset = hf_dataset['train']
+    else:
+        hf_dataset = hf_dataset['valid']
+    # Wrap Hugging Face dataset with PyTorch Dataset to apply transformations
+    dataset = HFDataset(hf_dataset, transform=transform)
+    nb_classes = 200  # Number of classes for ImageNet, 200 for tiny
+    return dataset, nb_classes
 
 
 
