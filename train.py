@@ -87,10 +87,12 @@ def Main(args):
     dist_backend = 'nccl'
     torch.distributed.init_process_group(backend=dist_backend)
     # exit()
-    
+    rank = dist.get_rank()
+    gpu = int(rank) % 2
     # world_size = len(config.SYSTEM.device_ids)
     # rank = 0
     # torch.cuda.set_device(config.LOCAL_RANK)
+    torch.cuda.set_device(gpu)
     # print(f'rank from dist: {dist.get_rank()}')
     # torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
     # torch.distributed.barrier()
@@ -127,9 +129,9 @@ def Main(args):
     model.cuda()
     model = torch.nn.parallel.DistributedDataParallel(model)
 
-    config.TRAIN.BASE_LR = config.TRAIN.BASE_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
-    config.TRAIN.WARMUP_LR = config.TRAIN.WARMUP_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
-    config.TRAIN.MIN_LR = config.TRAIN.MIN_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
+    config.TRAIN.BASE_LR = config.TRAIN.BASE_LR * config.DATASET.BATCH_SIZE * dist.get_world_size() / 512.0
+    config.TRAIN.WARMUP_LR = config.TRAIN.WARMUP_LR * config.DATASET.BATCH_SIZE * dist.get_world_size() / 512.0
+    config.TRAIN.MIN_LR = config.TRAIN.MIN_LR * config.DATASET.BATCH_SIZE * dist.get_world_size() / 512.0
 
     def count_parameters(model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
