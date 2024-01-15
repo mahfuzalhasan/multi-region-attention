@@ -21,13 +21,13 @@ C.SYSTEM.abs_dir = osp.realpath(".")
 #C.SYSTEM.device_ids = [0] # for mahdi (lab-pc)
 # C.SYSTEM.device_ids = [0, 1] # for mahdi (newton)
 # C.SYSTEM.device_ids = [0, 1, 2, 3] # for FICS
-C.SYSTEM.device_ids = [0, 1, 2, 3, 4, 5, 6] # for nautilus
+C.SYSTEM.device_ids = [0, 1, 2, 3] # for nautilus
 
 
 """Dataset Config"""
 C.DATASET = edict()
 C.DATASET.name = 'imagenet'
-C.DATASET.root = '/home/abjawad/Documents/GitHub/multi-region-attention/data/imagenet/ILSVRC/Data/CLS-LOC'
+C.DATASET.root = './data/imagenet/ILSVRC/Data/CLS-LOC'
 # C.DATASET.DATA_PATH = osp.join(C.SYSTEM.root_dir, 'data/Cityscapes')
 C.DATASET.mode = 'RGB'
 # Input image size
@@ -43,7 +43,7 @@ C.DATASET.CACHE_MODE = 'part'
 
 ####################
 # Batch size for a single GPU, could be overwritten by command line argument
-C.DATASET.BATCH_SIZE = 128
+C.DATASET.BATCH_SIZE = 32
 # Path to dataset, could be overwritten by command line argument
 C.DATASET.DATA_PATH = ''
 # Dataset name
@@ -172,8 +172,8 @@ add_path(osp.join(C.SYSTEM.root_dir))
 
 """SAVE Config"""
 C.WRITE = edict()
-C.WRITE.log_dir = "/project/results_check/logs/"
-C.WRITE.checkpoint_dir = "/project/results_check/saved_models/"
+C.WRITE.log_dir = "./results/logs/"
+C.WRITE.checkpoint_dir = "./results/saved_models/"
 
 # -----------------------------------------------------------------------------
 # Miscellanous

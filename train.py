@@ -40,6 +40,38 @@ sys.path.append(current_dir)
 # import torch.multiprocessing
 # torch.multiprocessing.set_sharing_strategy('file_system')
 
+def init_distributed_mode(config):
+    # if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+    #     rank = int(os.environ["RANK"])
+    #     world_size = int(os.environ['WORLD_SIZE'])
+    #     gpu = int(os.environ['LOCAL_RANK'])
+    # elif 'SLURM_PROCID' in os.environ:
+    #     rank = int(os.environ['SLURM_PROCID'])
+    #     gpu = args.rank % torch.cuda.device_count()
+    # else:
+    #     print('Not using distributed mode')
+    #     distributed = False
+    #     return
+
+    rank = os.environ.get('RANK')
+    world_size = os.environ.get('WORLD_SIZE')
+    if rank is None or world_size is None:
+        print("RANK and WORLD_SIZE need to be set")
+        world_size = len(config.SYSTEM.device_ids)
+        rank = 0
+        gpu = config.LOCAL_RANK
+
+    print(f'rank:{rank} world_size:{world_size} gpu:{gpu}')
+    distributed = True
+
+    torch.cuda.set_device(gpu)
+    dist_backend = 'nccl'
+    dist_url = 'env://'
+    print('| distributed init (rank {}): {}'.format(rank, dist_url), flush=True)
+    torch.distributed.init_process_group(backend=dist_backend, init_method=dist_url, world_size=world_size, rank=rank)
+    torch.distributed.barrier()
+    # setup_for_distributed(args.rank == 0)
+
 def Main(args):
     run_id = datetime.datetime.today().strftime('%m-%d-%y_%H%M')
     print(f'$$$$$$$$$$$$$ run_id:{run_id} $$$$$$$$$$$$$')
@@ -50,17 +82,25 @@ def Main(args):
         from configs.config_imagenet import config
     else:
         raise NotImplementedError
+
+    # init_distributed_mode(config)
+    dist_backend = 'nccl'
+    torch.distributed.init_process_group(backend=dist_backend)
+    # exit()
     
-    world_size = len(config.SYSTEM.device_ids)
-    rank = 0
-    torch.cuda.set_device(config.LOCAL_RANK)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-    torch.distributed.barrier()
-    print(f'rank from dist: {dist.get_rank()}')
-    seed = config.SEED + dist.get_rank()
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    cudnn.benchmark = True
+    # world_size = len(config.SYSTEM.device_ids)
+    # rank = 0
+    # torch.cuda.set_device(config.LOCAL_RANK)
+    # print(f'rank from dist: {dist.get_rank()}')
+    # torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+    # torch.distributed.barrier()
+    # print(f'rank from dist: {dist.get_rank()}')
+    # seed = config.SEED + dist.get_rank()
+    # torch.manual_seed(seed)
+    # np.random.seed(seed)
+    # cudnn.benchmark = True
+    # if torch.cuda.is_available():
+    #     torch.cuda.manual_seed(seed)
 
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
@@ -68,26 +108,11 @@ def Main(args):
     print(f"\n it in one epoch: len_dl::: train:{len(data_loader_train)} val:{len(data_loader_val)}")
     print(f"\n batch size:{config.DATASET.BATCH_SIZE} \n")
     save_log = os.path.join(config.WRITE.log_dir, str(run_id))
-    if not os.path.exists(save_log):
+    if not os.path.exists(save_log) and dist.get_rank() == 0 :
         os.makedirs(save_log)
-    writer = SummaryWriter(save_log)
-
-    world_size = len(config.SYSTEM.device_ids)
-    rank = 0
-    torch.cuda.set_device(config.LOCAL_RANK)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-    torch.distributed.barrier()
-    print(f'rank from dist: {dist.get_rank()}')
-    seed = config.SEED + dist.get_rank()
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    cudnn.benchmark = True
-
-    cudnn.benchmark = True
-    seed = config.SYSTEM.seed
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
+    
+    if dist.get_rank() == 0:
+        writer = SummaryWriter(save_log)
 
     # config network and criterion
     if config.AUG.MIXUP > 0.:
@@ -100,7 +125,7 @@ def Main(args):
 
     model=segmodel(cfg=config, criterion=criterion, norm_layer=nn.BatchNorm2d)
     model.cuda()
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False)
+    model = torch.nn.parallel.DistributedDataParallel(model)
 
     config.TRAIN.BASE_LR = config.TRAIN.BASE_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
     config.TRAIN.WARMUP_LR = config.TRAIN.WARMUP_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
@@ -207,7 +232,7 @@ def Main(args):
 
             batch_time.update(time.time() - end)
             end = time.time()
-            if idx % config.TRAIN.train_print_stats == 0:
+            if idx % config.TRAIN.train_print_stats == 0 and dist.get_rank() == 0:
                 lr = optimizer.param_groups[0]['lr']
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 etas = batch_time.avg * (num_steps - idx)
@@ -252,24 +277,26 @@ def Main(args):
         model_save_time = time.time() - model_save_start
         print(f"EPOCH {epoch} model save takes {datetime.timedelta(seconds=int(model_save_time))}")
 
-        writer_start = time.time()
-        writer.add_scalar('val_max_acc', max_accuracy, epoch)   
-        writer.add_scalar('val_loss', v_loss, epoch)
-        writer.add_scalar('val_acc_1', acc1, epoch)
-        writer.add_scalar('val_acc_5', acc5, epoch)
-        writer.add_scalar('train_max_acc', training_max_acc, epoch)
-        writer.add_scalar('train_loss', t_loss, epoch)
-        writer.add_scalar('train_acc_1', t_acc1, epoch)
-        writer.add_scalar('train_acc_5', t_acc5, epoch)
-        writer_time = time.time() - writer_start
-        print(f"EPOCH {epoch} writer takes {datetime.timedelta(seconds=int(writer_time))}")
+        
+        if dist.get_rank() == 0:
+            writer_start = time.time()
+            writer.add_scalar('val_max_acc', max_accuracy, epoch)   
+            writer.add_scalar('val_loss', v_loss, epoch)
+            writer.add_scalar('val_acc_1', acc1, epoch)
+            writer.add_scalar('val_acc_5', acc5, epoch)
+            writer.add_scalar('train_max_acc', training_max_acc, epoch)
+            writer.add_scalar('train_loss', t_loss, epoch)
+            writer.add_scalar('train_acc_1', t_acc1, epoch)
+            writer.add_scalar('train_acc_5', t_acc5, epoch)
+            writer_time = time.time() - writer_start
+            print(f"EPOCH {epoch} writer takes {datetime.timedelta(seconds=int(writer_time))}")
 
-        val_epoch_time = time.time() - start_val
-        print(f"EPOCH {epoch} val takes {datetime.timedelta(seconds=int(val_epoch_time))}")
-        print(f'\n ###### stats after epoch :{epoch} ######### \n')
-        print(f't_loss:{t_loss:.4f} v_loss:{v_loss:.4f}') 
-        print(f't_acc1:{t_acc1:.4f} t_acc5: {t_acc5:.4f} v_acc1:{acc1:.4f} v_acc5:{acc5:.4f}')
-        print(f'\n ######## epoch {epoch} is completed ########### \n')
+            val_epoch_time = time.time() - start_val
+            print(f"EPOCH {epoch} val takes {datetime.timedelta(seconds=int(val_epoch_time))}")
+            print(f'\n ###### stats after epoch :{epoch} ######### \n')
+            print(f't_loss:{t_loss:.4f} v_loss:{v_loss:.4f}') 
+            print(f't_acc1:{t_acc1:.4f} t_acc5: {t_acc5:.4f} v_acc1:{acc1:.4f} v_acc5:{acc5:.4f}')
+            print(f'\n ######## epoch {epoch} is completed ########### \n')
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -299,5 +326,10 @@ if __name__=='__main__':
 
     args = parser.parse_args()
 
-    os.environ['MASTER_PORT'] = '169710'
+    # os.environ['MASTER_PORT'] = '34567'
+    # os.environ['MASTER_ADDR'] = 'localhost'
     Main(args)
+
+
+    
+

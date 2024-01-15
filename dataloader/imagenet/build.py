@@ -17,7 +17,7 @@ from timm.data import create_transform
 
 from .samplers import SubsetRandomSampler
 
-from datasets import load_dataset
+# from datasets import load_dataset
 from .HFDataset import HFDataset
 
 
@@ -41,7 +41,7 @@ def build_loader(config):
         sampler_train = SubsetRandomSampler(indices)
     else:
         sampler_train = torch.utils.data.DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=False
         )
 
     indices = np.arange(dist.get_rank(), len(dataset_val), dist.get_world_size())
