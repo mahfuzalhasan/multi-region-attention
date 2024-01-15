@@ -40,44 +40,44 @@ sys.path.append(current_dir)
 # import torch.multiprocessing
 # torch.multiprocessing.set_sharing_strategy('file_system')
 
-def init_distributed_mode(config):
-    # if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
-    #     rank = int(os.environ["RANK"])
-    #     world_size = int(os.environ['WORLD_SIZE'])
-    #     gpu = int(os.environ['LOCAL_RANK'])
-    # elif 'SLURM_PROCID' in os.environ:
-    #     rank = int(os.environ['SLURM_PROCID'])
-    #     gpu = args.rank % torch.cuda.device_count()
-    # else:
-    #     print('Not using distributed mode')
-    #     distributed = False
-    #     return
+# def init_distributed_mode(config):
+#     # if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+#     #     rank = int(os.environ["RANK"])
+#     #     world_size = int(os.environ['WORLD_SIZE'])
+#     #     gpu = int(os.environ['LOCAL_RANK'])
+#     # elif 'SLURM_PROCID' in os.environ:
+#     #     rank = int(os.environ['SLURM_PROCID'])
+#     #     gpu = args.rank % torch.cuda.device_count()
+#     # else:
+#     #     print('Not using distributed mode')
+#     #     distributed = False
+#     #     return
 
-    rank = os.environ.get('RANK')
-    world_size = os.environ.get('WORLD_SIZE')
-    if rank is None or world_size is None:
-        print("RANK and WORLD_SIZE need to be set")
-        world_size = len(config.SYSTEM.device_ids)
-        rank = 0
-        gpu = config.LOCAL_RANK
+#     rank = os.environ.get('RANK')
+#     world_size = os.environ.get('WORLD_SIZE')
+#     if rank is None or world_size is None:
+#         print("RANK and WORLD_SIZE need to be set")
+#         world_size = len(config.SYSTEM.device_ids)
+#         rank = 0
+#         gpu = config.LOCAL_RANK
 
-    print(f'rank:{rank} world_size:{world_size} gpu:{gpu}')
-    distributed = True
+#     print(f'rank:{rank} world_size:{world_size} gpu:{gpu}')
+#     distributed = True
 
-    torch.cuda.set_device(gpu)
-    dist_backend = 'nccl'
-    dist_url = 'env://'
-    print('| distributed init (rank {}): {}'.format(rank, dist_url), flush=True)
-    torch.distributed.init_process_group(backend=dist_backend, init_method=dist_url, world_size=world_size, rank=rank)
-    torch.distributed.barrier()
-    # setup_for_distributed(args.rank == 0)
+#     torch.cuda.set_device(gpu)
+#     dist_backend = 'nccl'
+#     dist_url = 'env://'
+#     print('| distributed init (rank {}): {}'.format(rank, dist_url), flush=True)
+#     torch.distributed.init_process_group(backend=dist_backend, init_method=dist_url, world_size=world_size, rank=rank)
+#     torch.distributed.barrier()
+#     # setup_for_distributed(args.rank == 0)
 
 def Main(args):
     run_id = datetime.datetime.today().strftime('%m-%d-%y_%H%M')
     print(f'$$$$$$$$$$$$$ run_id:{run_id} $$$$$$$$$$$$$')
     
     config_filename = args.config.split('/')[-1].split('.')[0] 
-    print('cnfig_filename: ',config_filename)    
+    print('config_filename: ',config_filename)    
     if config_filename == 'imagenet':
         from configs.config_imagenet import config
     else:
@@ -87,15 +87,17 @@ def Main(args):
     dist_backend = 'nccl'
     torch.distributed.init_process_group(backend=dist_backend)
     # exit()
-    rank = dist.get_rank()
-    gpu = int(rank) % 2
+    
     # world_size = len(config.SYSTEM.device_ids)
     # rank = 0
     # torch.cuda.set_device(config.LOCAL_RANK)
-    torch.cuda.set_device(gpu)
+    
+    rank = dist.get_rank()
+    torch.cuda.set_device(int(rank))
+    
     # print(f'rank from dist: {dist.get_rank()}')
     # torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-    # torch.distributed.barrier()
+    torch.distributed.barrier()     ## this keeps checkpoints during training for all processes to catch up and sync
     # print(f'rank from dist: {dist.get_rank()}')
     # seed = config.SEED + dist.get_rank()
     # torch.manual_seed(seed)
@@ -194,9 +196,9 @@ def Main(args):
         end = time.time()
         
         for idx, (samples, targets) in enumerate(data_loader_train):
-            samples = samples.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
-            targets = targets.to(f'cuda:{model.device_ids[0]}', non_blocking=True) 
-            print(f'target initial: {targets.size()} sample:{samples.size()}') 
+            samples = samples.to('cuda', non_blocking=True)
+            targets = targets.to('cuda', non_blocking=True) 
+            # print(f'target initial: {targets.size()} sample:{samples.size()}') 
             
             initial_targets = targets.clone()
             if mixup_fn is not None:

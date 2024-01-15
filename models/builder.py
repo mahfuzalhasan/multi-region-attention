@@ -81,7 +81,7 @@ class EncoderDecoder(nn.Module):
             out, aux_fm = self.encode_decode(rgb)
         else:
             out = self.encode_decode(rgb)
-        print(f'out:{out.shape}')
+        # print(f'out:{out.shape}')
         if label is None:
             return out
 
