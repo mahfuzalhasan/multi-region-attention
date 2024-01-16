@@ -15,3 +15,4 @@ output/*
 Config/*
 *.slurm
 slurm_logs*/
+notebooks/dataset/*
