@@ -13,7 +13,7 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-RTX-A6000
+                - NVIDIA-A10
       containers:
       - name: seg-container
         image: ubuntu
@@ -30,7 +30,7 @@ spec:
             pip3 install termcolor && \
             pip3 install tensorboardX && \
             pip3 install -U "huggingface_hub[cli]" && \
-            huggingface-cli login --token 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 && \
+            huggingface-cli login --token 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 && \
             apt-get update && \
             apt-get install -y git && \
             echo '===========installation successful==========' && \
@@ -39,7 +39,7 @@ spec:
             apt update && \
             echo 'git pulled successfully.' && \
             cd /opt/repo/multi-region-attention && \
-            python3 train.py imagenet && \
+            torchrun --standalone --nproc_per_node=2 train.py imagenet --devices 2 --dataset tiny-imagenet --batchsize 64 && \
             echo '===========training executed successfully=========='
         volumeMounts:
         - name: data
@@ -51,12 +51,12 @@ spec:
             ephemeral-storage: "700Gi"
             memory: 200Gi
             cpu: "10"
-            nvidia.com/gpu: "6"
+            nvidia.com/gpu: "2"
           requests:
             ephemeral-storage: "700Gi"
             memory: 200Gi
             cpu: "8"
-            nvidia.com/gpu: "6"
+            nvidia.com/gpu: "2"
         securityContext:
           runAsUser: 0
       volumes:

@@ -11,7 +11,7 @@ spec:
           - key: nvidia.com/gpu.product
             operator: In
             values:
-            - NVIDIA-A100-SXM4-80GB
+            - NVIDIA-GeForce-GTX-1080-Ti
   containers:
   - name: t-pod
     image: ubuntu
@@ -22,15 +22,32 @@ spec:
       limits:
         memory: 32Gi
         cpu: "4"
+        nvidia.com/gpu: "2"
       requests:
         memory: 32Gi
         cpu: "4"
+        nvidia.com/gpu: "2"
     command: 
       - "sh"
       - "-c"
       - |
         apt update && \
-        apt install -y wget unzip python3 python3-pip git && \
+        apt install -y python3 python3-pip && \
+        pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
+        pip3 install timm==0.9.7 && \
+        pip3 install easydict==1.10 && \
+        pip3 install datasets && \
+        pip3 install termcolor && \
+        pip3 install tensorboardX && \
+        pip3 install -U "huggingface_hub[cli]" && \
+        huggingface-cli login --token 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 && \
+        apt-get update && \
+        apt-get install -y git && \
+        echo '===========installation successful==========' && \
+        mkdir -p /opt/repo/multi-region-attention && \
+        git clone --single-branch --branch masked_attention https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
+        apt update && \
+        echo 'git pulled successfully.' && \
         echo '===========Commands executed successfully.==========' && \
         sleep infinity
   volumes:

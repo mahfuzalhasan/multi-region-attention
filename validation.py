@@ -194,7 +194,7 @@ def validation(epoch, val_loader, model, config):
         return val_cityscape(epoch, val_loader, model, config)
     elif config.DATASET.name == 'ade20k':
         return val_ade(epoch, val_loader, model, config)
-    elif config.DATASET.name == 'imagenet':
+    elif config.DATASET.name == 'imagenet' or config.DATASET.name == 'tiny-imagenet':
         print('validation imagenet', type(val_loader))
         return val_imagenet(epoch, val_loader, model, config)
     else:
