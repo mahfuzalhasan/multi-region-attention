@@ -332,10 +332,10 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='PyTorch Segformer Training')
     parser.add_argument('config', help='dataset specific train config file path, more details can be found in configs/')
 
-    args = parser.parse_args()
     parser.add_argument('--devices', default=1, type=int, help='gpu devices')
     parser.add_argument('--dataset', default='imagenet', type=str, help='dataset name')
     parser.add_argument('--batchsize', default=128, type=int, help='batch size for single gpu')
+    args = parser.parse_args()
     # os.environ['MASTER_PORT'] = '34567'
     # os.environ['MASTER_ADDR'] = 'localhost'
     Main(args)
