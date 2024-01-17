@@ -83,6 +83,10 @@ def Main(args):
     else:
         raise NotImplementedError
 
+    config.SYSTEM.device_ids = [i for i in range(args.devices)]
+    config.DATASET.name = args.dataset
+    config.DATASET.BATCH_SIZE = args.batchsize
+
     # init_distributed_mode(config)
     dist_backend = 'nccl'
     torch.distributed.init_process_group(backend=dist_backend)
@@ -329,7 +333,9 @@ if __name__=='__main__':
     parser.add_argument('config', help='dataset specific train config file path, more details can be found in configs/')
 
     args = parser.parse_args()
-
+    parser.add_argument('--devices', default=1, type=int, help='gpu devices')
+    parser.add_argument('--dataset', default='imagenet', type=str, help='dataset name')
+    parser.add_argument('--batchsize', default=128, type=int, help='batch size for single gpu')
     # os.environ['MASTER_PORT'] = '34567'
     # os.environ['MASTER_ADDR'] = 'localhost'
     Main(args)
