@@ -265,7 +265,7 @@ def Main(args):
             print(f"EPOCH {epoch} val takes {datetime.timedelta(seconds=int(val_epoch_time))}")
             print(f'\n ###### stats after epoch :{epoch} ######### \n')
             print(f't_loss:{t_loss:.4f} v_loss:{v_loss:.4f}') 
-            print(f't_acc1:{t_acc1:.4f} t_acc5: {t_acc5:.4f} v_acc1:{acc1:.4f} v_acc5:{acc5:.4f}')
+            print(f'v_acc1:{acc1:.4f} v_acc5:{acc5:.4f}')
             print(f'\n ######## epoch {epoch} is completed ########### \n')
 
     total_time = time.time() - start_time

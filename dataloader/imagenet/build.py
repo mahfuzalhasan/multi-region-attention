@@ -42,9 +42,13 @@ def build_loader(config):
             dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=False
         )
 
-    indices = np.arange(dist.get_rank(), len(dataset_val), dist.get_world_size())
-    # indices = np.arange(global_rank, len(dataset_val), num_tasks)
-    sampler_val = SubsetRandomSampler(indices)
+    # indices = np.arange(dist.get_rank(), len(dataset_val), dist.get_world_size())
+    # # indices = np.arange(global_rank, len(dataset_val), num_tasks)
+    # sampler_val = SubsetRandomSampler(indices)
+
+    sampler_val = torch.utils.data.DistributedSampler(
+        dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=False
+    )
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train, sampler=sampler_train,
