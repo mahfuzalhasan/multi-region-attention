@@ -164,9 +164,9 @@ def val_imagenet(epoch, data_loader, model, config):
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
         # need for distributed learning
-        # acc1 = reduce_tensor(acc1)
-        # acc5 = reduce_tensor(acc5)
-        # loss = reduce_tensor(loss)
+        acc1 = reduce_tensor(acc1)
+        acc5 = reduce_tensor(acc5)
+        loss = reduce_tensor(loss)
 
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))

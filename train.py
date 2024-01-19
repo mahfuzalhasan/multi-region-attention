@@ -40,37 +40,6 @@ sys.path.append(current_dir)
 # import torch.multiprocessing
 # torch.multiprocessing.set_sharing_strategy('file_system')
 
-# def init_distributed_mode(config):
-#     # if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
-#     #     rank = int(os.environ["RANK"])
-#     #     world_size = int(os.environ['WORLD_SIZE'])
-#     #     gpu = int(os.environ['LOCAL_RANK'])
-#     # elif 'SLURM_PROCID' in os.environ:
-#     #     rank = int(os.environ['SLURM_PROCID'])
-#     #     gpu = args.rank % torch.cuda.device_count()
-#     # else:
-#     #     print('Not using distributed mode')
-#     #     distributed = False
-#     #     return
-
-#     rank = os.environ.get('RANK')
-#     world_size = os.environ.get('WORLD_SIZE')
-#     if rank is None or world_size is None:
-#         print("RANK and WORLD_SIZE need to be set")
-#         world_size = len(config.SYSTEM.device_ids)
-#         rank = 0
-#         gpu = config.LOCAL_RANK
-
-#     print(f'rank:{rank} world_size:{world_size} gpu:{gpu}')
-#     distributed = True
-
-#     torch.cuda.set_device(gpu)
-#     dist_backend = 'nccl'
-#     dist_url = 'env://'
-#     print('| distributed init (rank {}): {}'.format(rank, dist_url), flush=True)
-#     torch.distributed.init_process_group(backend=dist_backend, init_method=dist_url, world_size=world_size, rank=rank)
-#     torch.distributed.barrier()
-#     # setup_for_distributed(args.rank == 0)
 
 def Main(args):
     run_id = datetime.datetime.today().strftime('%m-%d-%y_%H%M')
@@ -87,28 +56,18 @@ def Main(args):
     config.DATASET.name = args.dataset
     config.DATASET.BATCH_SIZE = args.batchsize
 
-    # init_distributed_mode(config)
     dist_backend = 'nccl'
     torch.distributed.init_process_group(backend=dist_backend)
-    # exit()
-    
-    # world_size = len(config.SYSTEM.device_ids)
-    # rank = 0
-    # torch.cuda.set_device(config.LOCAL_RANK)
-    
     rank = dist.get_rank()
     torch.cuda.set_device(int(rank))
-    
-    # print(f'rank from dist: {dist.get_rank()}')
-    # torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
     torch.distributed.barrier()     ## this keeps checkpoints during training for all processes to catch up and sync
-    # print(f'rank from dist: {dist.get_rank()}')
-    # seed = config.SEED + dist.get_rank()
-    # torch.manual_seed(seed)
-    # np.random.seed(seed)
-    # cudnn.benchmark = True
-    # if torch.cuda.is_available():
-    #     torch.cuda.manual_seed(seed)
+    
+    seed = config.SEED + dist.get_rank()
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    cudnn.benchmark = True
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
 
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
@@ -327,8 +286,9 @@ if __name__=='__main__':
     parser.add_argument('--dataset', default='imagenet', type=str, help='dataset name')
     parser.add_argument('--batchsize', default=128, type=int, help='batch size for single gpu')
     args = parser.parse_args()
-    # os.environ['MASTER_PORT'] = '34567'
-    # os.environ['MASTER_ADDR'] = 'localhost'
+
+    print("code running")
+    
     Main(args)
 
 

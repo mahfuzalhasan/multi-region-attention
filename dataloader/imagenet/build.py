@@ -34,8 +34,6 @@ def build_loader(config):
 
     print(f'num task:{num_tasks} global_rank:{global_rank}')
 
-    # num_tasks = 4
-    # global_rank = 0
     if config.DATASET.ZIP_MODE and config.DATASET.CACHE_MODE == 'part':
         indices = np.arange(dist.get_rank(), len(dataset_train), dist.get_world_size())
         sampler_train = SubsetRandomSampler(indices)
