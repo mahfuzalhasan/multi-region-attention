@@ -59,7 +59,7 @@ def Main(args):
     dist_backend = 'nccl'
     torch.distributed.init_process_group(backend=dist_backend)
     rank = dist.get_rank()
-    torch.cuda.set_device(int(rank))
+    torch.cuda.set_device(rank)
     torch.distributed.barrier()     ## this keeps checkpoints during training for all processes to catch up and sync
     
     seed = config.SEED + dist.get_rank()
@@ -71,14 +71,15 @@ def Main(args):
 
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
-    print(f"\n #training:{len(dataset_train)} #val:{len(dataset_val)}")
-    print(f"\n it in one epoch: len_dl::: train:{len(data_loader_train)} val:{len(data_loader_val)}")
-    print(f"\n batch size:{config.DATASET.BATCH_SIZE} \n")
-    save_log = os.path.join(config.WRITE.log_dir, str(run_id))
-    if not os.path.exists(save_log) and dist.get_rank() == 0 :
-        os.makedirs(save_log)
+    if dist.get_rank()==0:
+        print(f"\n #training:{len(dataset_train)} #val:{len(dataset_val)}")
+        print(f"\n iteration in one epoch: len_dl::: train:{len(data_loader_train)} val:{len(data_loader_val)}")
+        print(f"\n batch size:{config.DATASET.BATCH_SIZE} \n")
     
-    if dist.get_rank() == 0:
+
+    if dist.get_rank()==0:
+        save_log = os.path.join(config.WRITE.log_dir, str(run_id))
+        os.makedirs(save_log, exist_ok=True)
         writer = SummaryWriter(save_log)
 
     # config network and criterion
@@ -104,6 +105,8 @@ def Main(args):
     # group weight and config optimizer
     base_lr = config.TRAIN.BASE_LR
 
+    print(f'rank:{dist.get_rank()} base_lr:{config.TRAIN.BASE_LR} w_lr:{config.TRAIN.WARMUP_LR} min_lr:{config.TRAIN.MIN_LR}')
+
     # config.TRAIN.BASE_LR = linear_scaled_lr
     # config.TRAIN.WARMUP_LR = linear_scaled_warmup_lr
     # config.TRAIN.MIN_LR = linear_scaled_min_lr
@@ -114,7 +117,8 @@ def Main(args):
     optimizer = build_optimizer(config, model)
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
 
-    print(f'############ begin training ################# \n')
+    if dist.get_rank()==0:
+        print(f'############ begin training ################# \n')
 
     starting_epoch = 0
     max_accuracy = None
@@ -131,7 +135,8 @@ def Main(args):
         print('resuming experiment from: ', old_run_id)
 
     n_params = count_parameters(model)
-    print(f'#params of the model: {n_params}')
+    if dist.get_rank()==0:
+        print(f'#params of the model: {n_params}')
 
     start_time = time.time()
     for epoch in range(starting_epoch, config.TRAIN.nepochs):
@@ -143,9 +148,10 @@ def Main(args):
         loss_meter = AverageMeter()
         norm_meter = AverageMeter()
 
-        acc1_meter = AverageMeter()
-        acc5_meter = AverageMeter()
+        # acc1_meter = AverageMeter()
+        # acc5_meter = AverageMeter()
         
+
         start = time.time()
         end = time.time()
         
@@ -184,9 +190,9 @@ def Main(args):
             loss_meter.update(loss.item(), targets.size(0))
             norm_meter.update(grad_norm)
             # print(f'output:::::{outputs.size()} target:{targets.size()}')
-            t_acc1, t_acc5 = accuracy(outputs, initial_targets, topk=(1, 5))
-            acc1_meter.update(t_acc1.item(), initial_targets.size(0))
-            acc5_meter.update(t_acc5.item(), initial_targets.size(0))
+            # t_acc1, t_acc5 = accuracy(outputs, initial_targets, topk=(1, 5))
+            # acc1_meter.update(t_acc1.item(), initial_targets.size(0))
+            # acc5_meter.update(t_acc5.item(), initial_targets.size(0))
 
             batch_time.update(time.time() - end)
             end = time.time()
@@ -200,52 +206,58 @@ def Main(args):
                     f'batch time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
                     f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
-                    f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
-                    f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
+                    # f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
+                    # f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                     f'mem {memory_used:.0f}MB')
             # if idx%5==0:
             #     break
         t_loss = loss_meter.avg
-        t_acc1 = acc1_meter.avg
-        t_acc5 = acc5_meter.avg
-        print(f' Training::::: Acc@1 {t_acc1:.3f} Acc@5 {t_acc5:.3f}')
-        training_max_acc = 0.0
-        training_max_acc = max(training_max_acc, t_acc1)
+        # t_acc1 = acc1_meter.avg
+        # t_acc5 = acc5_meter.avg
+            
+        # print(f' Training::::: Acc@1 {t_acc1:.3f} Acc@5 {t_acc5:.3f}')
+        # training_max_acc = 0.0
+        # training_max_acc = max(training_max_acc, t_acc1)
 
         epoch_time = time.time() - start
-        print(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
+        if dist.get_rank()==0:
+            print(f'Training loss epoch:{epoch}::: {t_loss}')
+            print(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
+
         if max_accuracy is None:
             max_accuracy = 0.0
         
         start_val = time.time()
         with torch.no_grad():
+            print(f'rank:{dist.get_rank()} entering validation')
             acc1, acc5, v_loss = validation(epoch, data_loader_val, model, config)
+            print(f'rank:{dist.get_rank()} validation acc:{acc1}')
         
         # Save model with best accuracy as model_best
-        model_save_start = time.time()
-        if acc1 > max_accuracy and dist.get_rank() == 0:
-            max_accuracy = max(max_accuracy, acc1)
-            save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir, best=True)
-        #save model every 25 epochs before checkpoint_start_epoch = 200
-        if dist.get_rank() == 0 and (epoch <= config.MODEL.checkpoint_start_epoch) and (epoch % (config.MODEL.checkpoint_step) == 0) and (epoch>0):
-            save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
-        #save model every 10 epochs after checkpoint_start_epoch=200. Save last one too. 
-        elif dist.get_rank() == 0 and (epoch > config.MODEL.checkpoint_start_epoch) and (epoch % config.MODEL.checkpoint_step_later == 0) or (epoch == config.TRAIN.nepochs-1):
-            save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
-        model_save_time = time.time() - model_save_start
-        print(f"EPOCH {epoch} model save takes {datetime.timedelta(seconds=int(model_save_time))}")
+        if dist.get_rank()==0:
+            model_save_start = time.time()
+            if acc1 > max_accuracy:
+                max_accuracy = max(max_accuracy, acc1)
+                save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir, best=True)
+            #save model every 25 epochs before checkpoint_start_epoch = 200
+            if (epoch <= config.MODEL.checkpoint_start_epoch) and (epoch % (config.MODEL.checkpoint_step) == 0) and (epoch>0):
+                save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
+            #save model every 10 epochs after checkpoint_start_epoch=200. Save last one too. 
+            elif (epoch > config.MODEL.checkpoint_start_epoch) and (epoch % config.MODEL.checkpoint_step_later == 0) or (epoch == config.TRAIN.nepochs-1):
+                save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
+            model_save_time = time.time() - model_save_start
+            print(f"EPOCH {epoch} model save takes {datetime.timedelta(seconds=int(model_save_time))}")
 
-        
-        if dist.get_rank() == 0:
+            ### Writing to Tensorboard
             writer_start = time.time()
             writer.add_scalar('val_max_acc', max_accuracy, epoch)   
             writer.add_scalar('val_loss', v_loss, epoch)
             writer.add_scalar('val_acc_1', acc1, epoch)
             writer.add_scalar('val_acc_5', acc5, epoch)
-            writer.add_scalar('train_max_acc', training_max_acc, epoch)
+            # writer.add_scalar('train_max_acc', training_max_acc, epoch)
             writer.add_scalar('train_loss', t_loss, epoch)
-            writer.add_scalar('train_acc_1', t_acc1, epoch)
-            writer.add_scalar('train_acc_5', t_acc5, epoch)
+            # writer.add_scalar('train_acc_1', t_acc1, epoch)
+            # writer.add_scalar('train_acc_5', t_acc5, epoch)
             writer_time = time.time() - writer_start
             print(f"EPOCH {epoch} writer takes {datetime.timedelta(seconds=int(writer_time))}")
 
@@ -258,7 +270,7 @@ def Main(args):
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print(f'Total Training time {total_time_str}')
+    print(f'rank:{dist.get_rank()} - Total Training time {total_time_str}')
 
 def save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, checkpoint_dir, best=False):
     save_dir = os.path.join(checkpoint_dir, str(run_id))

@@ -10,6 +10,8 @@ from utils.utils import load_checkpoint, save_checkpoint, get_grad_norm, auto_re
 from timm.utils import accuracy, AverageMeter
 
 # next two are likely not needed
+import torch
+import torch.distributed as dist
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -176,7 +178,7 @@ def val_imagenet(epoch, data_loader, model, config):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if idx % config.EVAL.EVAL_PRINT_FREQ == 0:
+        if idx % config.EVAL.EVAL_PRINT_FREQ == 0 and dist.get_rank()==0:
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             print(
                 f'Test: [{idx}/{len(data_loader)}]\t'
@@ -185,7 +187,8 @@ def val_imagenet(epoch, data_loader, model, config):
                 f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                 f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
-    print(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
+    if dist.get_rank()==0:
+        print(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
     
 @torch.no_grad()
