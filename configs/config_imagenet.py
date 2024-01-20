@@ -103,8 +103,8 @@ C.MODEL.heads = [3, 6, 12, 24]
 C.MODEL.decoder = 'ClassificationHead'#'MLPDecoder'
 C.MODEL.decoder_embed_dim = 768
 C.MODEL.checkpoint_start_epoch = 200
-C.MODEL.checkpoint_step = 25
-C.MODEL.checkpoint_step_later = 10
+C.MODEL.checkpoint_step = 1
+C.MODEL.checkpoint_step_later = 1
 C.MODEL.NAME = 'mra_tiny'
 C.MODEL.LABEL_SMOOTHING = 0.1
 # Dropout rate
@@ -172,8 +172,8 @@ add_path(osp.join(C.SYSTEM.root_dir))
 
 """SAVE Config"""
 C.WRITE = edict()
-C.WRITE.log_dir = "./results/logs/"
-C.WRITE.checkpoint_dir = "./results/saved_models/"
+C.WRITE.log_dir = "/project/logs/"
+C.WRITE.checkpoint_dir = "/project/saved_models/"
 
 # -----------------------------------------------------------------------------
 # Miscellanous

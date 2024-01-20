@@ -39,7 +39,7 @@ spec:
             apt update && \
             echo 'git pulled successfully.' && \
             cd /opt/repo/multi-region-attention && \
-            torchrun --standalone --nproc_per_node=5 train.py imagenet --devices 5 --batchsize 128 && \
+            torchrun --standalone --nproc_per_node=5 train.py imagenet --devices 5 --dataset tiny-imagenet --batchsize 128 && \
             echo '===========training executed successfully=========='
         volumeMounts:
         - name: data
