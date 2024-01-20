@@ -76,8 +76,6 @@ def Main(args):
         print(f"\n iteration in one epoch: len_dl::: train:{len(data_loader_train)} val:{len(data_loader_val)}")
         print(f"\n batch size:{config.DATASET.BATCH_SIZE} \n")
     
-
-    if dist.get_rank()==0:
         save_log = os.path.join(config.WRITE.log_dir, str(run_id))
         os.makedirs(save_log, exist_ok=True)
         writer = SummaryWriter(save_log)
@@ -92,8 +90,8 @@ def Main(args):
         criterion = torch.nn.CrossEntropyLoss()
 
     model=segmodel(cfg=config, criterion=criterion, norm_layer=nn.BatchNorm2d)
-    model.cuda()
-    model = torch.nn.parallel.DistributedDataParallel(model)
+    model.to(dist.get_rank())
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[dist.get_rank()])
 
     config.TRAIN.BASE_LR = config.TRAIN.BASE_LR * config.DATASET.BATCH_SIZE * dist.get_world_size() / 512.0
     config.TRAIN.WARMUP_LR = config.TRAIN.WARMUP_LR * config.DATASET.BATCH_SIZE * dist.get_world_size() / 512.0
@@ -137,7 +135,8 @@ def Main(args):
     n_params = count_parameters(model)
     if dist.get_rank()==0:
         print(f'#params of the model: {n_params}')
-
+    
+    torch.cuda.synchronize()
     start_time = time.time()
     for epoch in range(starting_epoch, config.TRAIN.nepochs):
         model.train()
@@ -147,78 +146,61 @@ def Main(args):
         batch_time = AverageMeter()
         loss_meter = AverageMeter()
         norm_meter = AverageMeter()
-
-        # acc1_meter = AverageMeter()
-        # acc5_meter = AverageMeter()
+        epoch_loss = 0.0
         
 
+        torch.cuda.synchronize()
         start = time.time()
         end = time.time()
         
         for idx, (samples, targets) in enumerate(data_loader_train):
-            samples = samples.to('cuda', non_blocking=True)
-            targets = targets.to('cuda', non_blocking=True) 
-            # print(f'target initial: {targets.size()} sample:{samples.size()}') 
-            
-            initial_targets = targets.clone()
+            samples = samples.to(dist.get_rank(), non_blocking=True)
+            targets = targets.to(dist.get_rank(), non_blocking=True) 
+           
             if mixup_fn is not None:
                 samples, targets = mixup_fn(samples, targets)
-
-            # loss, out = model(imgs, gts)
-
             
-
-            outputs = model(samples)
-            # print(f"samples:{samples.shape} outputs:{outputs.shape} loss_part:{loss_part}")
-            loss = criterion(outputs, targets)
-            # print(f"loss: {loss}")
-            # mean over multi-gpu result
-            # loss = torch.mean(loss) 
             optimizer.zero_grad()
+            outputs = model(samples)
+            loss = criterion(outputs, targets)
             loss.backward()
 
             if config.TRAIN.CLIP_GRAD:
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
             else:
                 grad_norm = get_grad_norm(model.parameters())
-
             optimizer.step()
             lr_scheduler.step_update(epoch * num_steps + idx)
 
-            torch.cuda.synchronize()
-
-            loss_meter.update(loss.item(), targets.size(0))
-            norm_meter.update(grad_norm)
-            # print(f'output:::::{outputs.size()} target:{targets.size()}')
-            # t_acc1, t_acc5 = accuracy(outputs, initial_targets, topk=(1, 5))
-            # acc1_meter.update(t_acc1.item(), initial_targets.size(0))
-            # acc5_meter.update(t_acc5.item(), initial_targets.size(0))
-
+            epoch_loss += loss.item()
             batch_time.update(time.time() - end)
-            end = time.time()
-            if idx % config.TRAIN.train_print_stats == 0 and dist.get_rank() == 0:
+
+            
+            norm_meter.update(grad_norm)
+
+            if idx % config.TRAIN.train_print_stats == 0:
+                epoch_loss_tensor = torch.tensor(epoch_loss, device=dist.get_rank())
+                dist.all_reduce(epoch_loss_tensor, op=dist.ReduceOp.SUM)
                 lr = optimizer.param_groups[0]['lr']
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 etas = batch_time.avg * (num_steps - idx)
-                print(
-                    f'Train: [{epoch}/{config.TRAIN.nepochs}][{idx}/{num_steps}]\t'
-                    f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.6f}\t'
-                    f'batch time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
-                    f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
-                    f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
-                    # f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
-                    # f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
-                    f'mem {memory_used:.0f}MB')
+                if dist.get_rank() == 0:
+                    print(
+                        f'Train: [{epoch}/{config.TRAIN.nepochs}][{idx}/{num_steps}]\t'
+                        f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.6f}\t'
+                        f'batch time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                        f'loss {epoch_loss_tensor.item():.4f} ({epoch_loss_tensor.item() / dist.get_world_size():.4f})\t'
+                        f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
+                        f'mem {memory_used:.0f}MB')
+            end = time.time()
+           
             # if idx%5==0:
             #     break
-        t_loss = loss_meter.avg
-        # t_acc1 = acc1_meter.avg
-        # t_acc5 = acc5_meter.avg
-            
-        # print(f' Training::::: Acc@1 {t_acc1:.3f} Acc@5 {t_acc5:.3f}')
-        # training_max_acc = 0.0
-        # training_max_acc = max(training_max_acc, t_acc1)
-
+        ############ epoch ends here###############
+        dist.barrier()
+        epoch_loss_tensor = torch.tensor(epoch_loss, device=dist.get_rank())
+        dist.all_reduce(epoch_loss_tensor, op=dist.ReduceOp.SUM)
+        t_loss = epoch_loss_tensor.item() / dist.get_world_size()
         epoch_time = time.time() - start
         if dist.get_rank()==0:
             print(f'Training loss epoch:{epoch}::: {t_loss}')
@@ -267,10 +249,12 @@ def Main(args):
             print(f't_loss:{t_loss:.4f} v_loss:{v_loss:.4f}') 
             print(f'v_acc1:{acc1:.4f} v_acc5:{acc5:.4f}')
             print(f'\n ######## epoch {epoch} is completed ########### \n')
-
+    ##### Training Ends Here##############
+    torch.cuda.synchronize()
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f'rank:{dist.get_rank()} - Total Training time {total_time_str}')
+    dist.destroy_process_group()
 
 def save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, checkpoint_dir, best=False):
     save_dir = os.path.join(checkpoint_dir, str(run_id))

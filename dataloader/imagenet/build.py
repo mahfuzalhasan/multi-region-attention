@@ -30,16 +30,16 @@ def build_loader(config):
     print(f"global rank {dist.get_rank()} successfully build val dataset")
 
     num_tasks = dist.get_world_size()
-    global_rank = dist.get_rank()
+    # global_rank = dist.get_rank()
 
-    print(f'num task:{num_tasks} global_rank:{global_rank}')
+    print(f'num task:{num_tasks} rank:{dist.get_rank()}')
 
     if config.DATASET.ZIP_MODE and config.DATASET.CACHE_MODE == 'part':
         indices = np.arange(dist.get_rank(), len(dataset_train), dist.get_world_size())
         sampler_train = SubsetRandomSampler(indices)
     else:
         sampler_train = torch.utils.data.DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=False
+            dataset_train, num_replicas=num_tasks, rank=dist.get_rank(), shuffle=False
         )
 
     # indices = np.arange(dist.get_rank(), len(dataset_val), dist.get_world_size())
@@ -47,7 +47,7 @@ def build_loader(config):
     # sampler_val = SubsetRandomSampler(indices)
 
     sampler_val = torch.utils.data.DistributedSampler(
-        dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=False
+        dataset_val, num_replicas=num_tasks, rank=dist.get_rank(), shuffle=False
     )
 
     data_loader_train = torch.utils.data.DataLoader(
