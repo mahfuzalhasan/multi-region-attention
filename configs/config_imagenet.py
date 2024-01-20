@@ -132,7 +132,7 @@ C.TRAIN.WEIGHT_DECAY = 0.05
 C.TRAIN.fix_bias = True
 C.TRAIN.bn_eps = 1e-3
 C.TRAIN.bn_momentum = 0.1
-C.TRAIN.train_print_stats = 30
+C.TRAIN.train_print_stats = 20
 C.TRAIN.resume_train = False 
 C.TRAIN.resume_model_path = osp.join(C.SYSTEM.root_dir, 'results/saved_models/12-29-23_2141/model_195.pth')
 
@@ -156,7 +156,7 @@ C.TRAIN.OPTIMIZER.MOMENTUM = 0.9
 
 """Eval Config"""
 C.EVAL = edict()
-C.EVAL.EVAL_PRINT_FREQ = 4
+C.EVAL.EVAL_PRINT_FREQ = 2
 
 
 """ Test """
