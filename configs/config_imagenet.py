@@ -172,8 +172,8 @@ add_path(osp.join(C.SYSTEM.root_dir))
 
 """SAVE Config"""
 C.WRITE = edict()
-C.WRITE.log_dir = "/project/logs/"
-C.WRITE.checkpoint_dir = "/project/saved_models/"
+C.WRITE.log_dir = "/project/results/logs"
+C.WRITE.checkpoint_dir = "/project/results/saved_models/"
 
 # -----------------------------------------------------------------------------
 # Miscellanous
