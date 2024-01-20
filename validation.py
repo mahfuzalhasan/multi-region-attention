@@ -193,9 +193,9 @@ def val_imagenet(epoch, data_loader, model, config):
             dist.all_reduce(batch_top1_tensor, op=dist.ReduceOp.SUM)
             dist.all_reduce(batch_top5_tensor, op=dist.ReduceOp.SUM)
 
-            batch_avg_loss = total_loss_tensor.item() / total_tensor.item()
-            batch_top1_accuracy = top1_tensor.item() / total_tensor.item() * 100
-            batch_top5_accuracy = top5_tensor.item() / total_tensor.item() * 100
+            batch_avg_loss = batch_total_loss_tensor.item() / batch_total_tensor.item()
+            batch_top1_accuracy = batch_top1_tensor.item() / batch_total_tensor.item() * 100
+            batch_top5_accuracy = batch_top5_tensor.item() / batch_total_tensor.item() * 100
 
             if dist.get_rank()==0:
                 print(

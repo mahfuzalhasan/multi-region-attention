@@ -176,14 +176,11 @@ def Main(args):
             lr_scheduler.step_update(epoch * num_steps + idx)
 
             epoch_loss += loss.item()
+            loss_meter.update(loss.item(), targets.size(0))
             batch_time.update(time.time() - end)
-
-            
             norm_meter.update(grad_norm)
 
             if idx % config.TRAIN.train_print_stats == 0:
-                epoch_loss_tensor = torch.tensor(epoch_loss, device=dist.get_rank())
-                dist.all_reduce(epoch_loss_tensor, op=dist.ReduceOp.SUM)
                 lr = optimizer.param_groups[0]['lr']
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 etas = batch_time.avg * (num_steps - idx)
@@ -192,7 +189,7 @@ def Main(args):
                         f'Train: [{epoch}/{config.TRAIN.nepochs}][{idx}/{num_steps}]\t'
                         f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.6f}\t'
                         f'batch time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
-                        f'loss {epoch_loss_tensor.item():.4f} ({epoch_loss_tensor.item() / dist.get_world_size():.4f})\t'
+                        f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
                         f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
                         f'mem {memory_used:.0f}MB')
             end = time.time()
@@ -201,9 +198,7 @@ def Main(args):
             #     break
         ############ epoch ends here###############
         dist.barrier()
-        epoch_loss_tensor = torch.tensor(epoch_loss, device=dist.get_rank())
-        dist.all_reduce(epoch_loss_tensor, op=dist.ReduceOp.SUM)
-        t_loss = epoch_loss_tensor.item() / dist.get_world_size()
+        t_loss = loss_meter.avg
         epoch_time = time.time() - start
         if dist.get_rank()==0:
             print(f'Training loss epoch:{epoch}::: {t_loss}')
