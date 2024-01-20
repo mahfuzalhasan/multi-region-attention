@@ -42,8 +42,7 @@ sys.path.append(current_dir)
 
 
 def Main(args):
-    run_id = datetime.datetime.today().strftime('%m-%d-%y_%H%M')
-    print(f'$$$$$$$$$$$$$ run_id:{run_id} $$$$$$$$$$$$$')
+    
     
     config_filename = args.config.split('/')[-1].split('.')[0] 
     print('config_filename: ',config_filename)    
@@ -68,6 +67,10 @@ def Main(args):
     cudnn.benchmark = True
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
+
+    torch.cuda.synchronize()
+    run_id = datetime.datetime.today().strftime('%m-%d-%y_%H%M')
+    print(f'$$$$$$$$$$$$$ run_id:{run_id} $$$$$$$$$$$$$')
 
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 

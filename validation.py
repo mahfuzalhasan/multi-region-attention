@@ -205,7 +205,7 @@ def val_imagenet(epoch, data_loader, model, config):
                     f'Acc@1 avg ({batch_top1_accuracy:.3f})\t'
                     f'Acc@5 avg ({batch_top5_accuracy:.3f})\t'
                     f'Mem {memory_used:.0f}MB')
-            
+    ###### validation done ########  
     total_loss_tensor = torch.tensor([total_loss], device=dist.get_rank())
     total_tensor = torch.tensor([total], device=dist.get_rank())
     top1_tensor = torch.tensor([top_1_total], device=dist.get_rank())
