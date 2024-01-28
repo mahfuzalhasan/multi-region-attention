@@ -136,6 +136,7 @@ class MultiScaleAttention(nn.Module):
             # print(f'y:{y.shape} attn:{attn.shape}')
             
             y = y.reshape(B, group_size, n_region, -1, C//self.num_heads)
+            # print(f'y reshape:{y.shape} attn:{attn.shape}')
             if i>0:
                 repetition_factor = (N_g//y.shape[2])
                 y = y.repeat(1, 1, repetition_factor, 1, 1)
@@ -186,11 +187,11 @@ class MultiScaleAttention(nn.Module):
 if __name__=="__main__":
     # #######print(backbone)
     B = 4
-    C = 768
+    C = 384
     H = 14
     W = 14
     # device = 'cuda:1'
-    ms_attention = MultiScaleAttention(C, num_heads=24, n_local_region_scales=1, window_size=7)
+    ms_attention = MultiScaleAttention(C, num_heads=12, n_local_region_scales=2, window_size=7)
     # ms_attention = ms_attention.to(device)
     # # ms_attention = nn.DataParallel(ms_attention, device_ids = [0,1])
     # # ms_attention.to(f'cuda:{ms_attention.device_ids[0]}', non_blocking=True)

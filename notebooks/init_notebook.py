@@ -5,7 +5,7 @@ try:
 except ValueError: # Already removed
     pass
 
-projectFolder = r'/home/abjawad/Documents/GitHub/multi-region-attention/'
+projectFolder = r'/mnt/d/Study/Research/Segmentation_Local_Attention/scripts/multi-region-attention'
 
 
 sys.path.append(str(projectFolder))

@@ -30,7 +30,7 @@ spec:
             pip3 install termcolor && \
             pip3 install tensorboardX && \
             pip3 install -U "huggingface_hub[cli]" && \
-            huggingface-cli login --token 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 && \
+            huggingface-cli login --token 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 && \
             apt-get update && \
             apt-get install -y git && \
             echo '===========installation successful==========' && \
