@@ -75,7 +75,7 @@ C.AUG.COLOR_JITTER = 0.4
 # Use AutoAugment policy. "v0" or "original"
 C.AUG.AUTO_AUGMENT = 'rand-m9-mstd0.5-inc1'
 # Random erase prob
-C.AUG.REPROB = 0.25
+C.AUG.REPROB = 0    # following text from Focal Paper, random erasing is excluded
 # Random erase mode
 C.AUG.REMODE = 'pixel'
 # Random erase count
