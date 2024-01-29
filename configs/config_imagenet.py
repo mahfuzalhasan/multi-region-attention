@@ -43,7 +43,7 @@ C.DATASET.CACHE_MODE = 'part'
 
 ####################
 # Batch size for a single GPU, could be overwritten by command line argument
-C.DATASET.BATCH_SIZE = 200
+C.DATASET.BATCH_SIZE = 170
 # Path to dataset, could be overwritten by command line argument
 C.DATASET.DATA_PATH = ''
 # Dataset name
@@ -123,7 +123,7 @@ C.TRAIN.MIN_LR = 5e-6
 C.TRAIN.ACCUMULATION_STEPS = 0
 
 C.TRAIN.nepochs = 300
-C.TRAIN.num_workers = 4
+C.TRAIN.num_workers = 6
 
 C.TRAIN.warm_up_epoch = 20
 C.TRAIN.CLIP_GRAD = 5.0

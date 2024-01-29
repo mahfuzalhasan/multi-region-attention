@@ -35,11 +35,11 @@ spec:
             apt-get install -y git && \
             echo '===========installation successful==========' && \
             mkdir -p /opt/repo/multi-region-attention && \
-            git clone --single-branch --branch masked_attention https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
+            git clone --single-branch --branch multi-scale-head-attn https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
             apt update && \
             echo 'git pulled successfully.' && \
             cd /opt/repo/multi-region-attention && \
-            torchrun --standalone --nproc_per_node=5 train.py imagenet --devices 5 --batchsize 200 && \
+            torchrun --standalone --nproc_per_node=6 train.py imagenet --devices 6 --dataset tiny-imagenet --batchsize 170 && \
             echo '===========training executed successfully=========='
         volumeMounts:
         - name: data
@@ -51,12 +51,12 @@ spec:
             ephemeral-storage: "900Gi"
             memory: 100Gi
             cpu: "10"
-            nvidia.com/gpu: "5"
+            nvidia.com/gpu: "6"
           requests:
             ephemeral-storage: "900Gi"
             memory: 100Gi
             cpu: "10"
-            nvidia.com/gpu: "5"
+            nvidia.com/gpu: "6"
         securityContext:
           runAsUser: 0
       volumes:
