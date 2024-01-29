@@ -139,7 +139,8 @@ def build_transform(is_train, config):
             re_count=config.AUG.RECOUNT,
             interpolation=config.DATASET.INTERPOLATION,
         )
-        print("transform: ",transform)
+        if dist.get_rank()==0:
+            print("transform: ",transform)
         if not resize_im:
             # replace RandomResizedCropAndInterpolation with
             # RandomCrop
