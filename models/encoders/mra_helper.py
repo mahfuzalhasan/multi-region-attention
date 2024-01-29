@@ -13,8 +13,7 @@ sys.path.append(parent_dir)
 model_dir = os.path.abspath(os.path.join(parent_dir, os.pardir))
 sys.path.append(model_dir)
 
-from multi_scale_attention import MultiScaleAttention
-from global_subsampled_attn import GlobalSubsampledAttention
+from multi_scale_head import MultiScaleAttention
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 from configs.config_imagenet import config
 
@@ -115,23 +114,16 @@ class Block(nn.Module):
     Transformer Block: Self-Attention -> Mix FFN -> OverLap Patch Merging
     """
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, sr_ratio=1, local_region_shape=[5, 10, 20, 40], g_attn=config.MODEL.GSA, img_size=(1024, 1024)):
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, n_local_region_scales=3, img_size=(1024, 1024)):
         super().__init__()
         self.norm1 = norm_layer(dim)
-        self.local_region_shape = local_region_shape
+        self.n_local_region_scales = n_local_region_scales
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.attn = MultiScaleAttention(
             dim,
             num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
-            attn_drop=attn_drop, proj_drop=drop, sr_ratio=sr_ratio, 
-            local_region_shape=self.local_region_shape, img_size=img_size)
-        
-        self.gsa = None
-        if g_attn:
-            self.norm3 = norm_layer(dim)
-            self.gsa = GlobalSubsampledAttention(dim, num_heads, self.local_region_shape[-1])
-            self.norm4 = norm_layer(dim)
-            self.mlp_gsa = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+            attn_drop=attn_drop, proj_drop=drop, 
+            n_local_region_scales=self.n_local_region_scales, img_size=img_size)
 
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
@@ -159,9 +151,6 @@ class Block(nn.Module):
     def forward(self, x, H, W):
         x = x + self.drop_path(self.attn(self.norm1(x), H, W))
         x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
-        if self.gsa:
-            x = x + self.drop_path(self.gsa(self.norm3(x), H, W))
-            x = x + self.drop_path(self.mlp_gsa(self.norm4(x), H, W))
         return x
     
     def flops(self):
@@ -216,7 +205,6 @@ class OverlapPatchEmbed(nn.Module):
         x = x.flatten(2).transpose(1, 2)
         # B H*W/16 C
         x = self.norm(x)
-
         return x, H, W
 
     def flops(self):
@@ -233,6 +221,84 @@ class OverlapPatchEmbed(nn.Module):
 
         total_flops = conv_flops + norm_flops
         return total_flops
+    
+class PatchEmbed(nn.Module):
+    r""" Image to Patch Embedding
+
+    Args:
+        img_size (int): Image size.  Default: 224.
+        patch_size (int): Patch token size. Default: 4.
+        in_chans (int): Number of input image channels. Default: 3.
+        embed_dim (int): Number of linear projection output channels. Default: 96.
+        use_conv_embed (bool): Wherther use overlapped convolutional embedding layer. Default: False.
+        norm_layer (nn.Module, optional): Normalization layer. Default: None 
+        use_pre_norm (bool): Whether use pre-normalization before projection. Default: False
+        is_stem (bool): Whether current patch embedding is stem. Default: False
+    """
+
+    def __init__(self, img_size=(224, 224), patch_size=4, in_chans=3, embed_dim=96, 
+                    use_conv_embed=False, norm_layer=None, use_pre_norm=False, is_stem=False):
+        super().__init__()
+        patch_size = to_2tuple(patch_size)
+        patches_resolution = [img_size[0] // patch_size[0], img_size[1] // patch_size[1]]
+        self.img_size = img_size
+        self.patch_size = patch_size
+        self.patches_resolution = patches_resolution
+        self.num_patches = patches_resolution[0] * patches_resolution[1]
+
+        self.in_chans = in_chans
+        self.embed_dim = embed_dim
+        self.use_pre_norm = use_pre_norm
+        self.use_conv_embed = use_conv_embed
+
+        if use_conv_embed:
+            # if we choose to use conv embedding, then we treat the stem and non-stem differently
+            if is_stem:
+                kernel_size = 7; padding = 2; stride = 4
+            else:
+                kernel_size = 3; padding = 1; stride = 2
+            self.kernel_size = kernel_size
+            self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=kernel_size, stride=stride, padding=padding)
+        else:
+            self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
+        
+
+        if self.use_pre_norm:
+            if norm_layer is not None:
+                self.pre_norm = nn.GroupNorm(1, in_chans)
+            else:
+                self.pre_norm = None
+
+        if norm_layer is not None:
+            self.norm = norm_layer(embed_dim)
+        else:
+            self.norm = None
+
+    def forward(self, x):
+        B, C, H, W = x.shape
+        # FIXME look at relaxing size constraints
+        assert H == self.img_size[0] and W == self.img_size[1], \
+            f"Input image size ({H}*{W}) doesn't match model ({self.img_size[0]}*{self.img_size[1]})."
+        
+        if self.use_pre_norm:
+            x = self.pre_norm(x)
+
+        x = self.proj(x)
+        _, _, H, W = x.shape
+        x = x.flatten(2).transpose(1, 2)  # B Ph*Pw C
+        if self.norm is not None:
+            x = self.norm(x)
+        return x, H, W
+
+    def flops(self):
+        Ho, Wo = self.patches_resolution
+        if self.use_conv_embed:
+            flops = Ho * Wo * self.embed_dim * self.in_chans * (self.kernel_size**2)
+        else:
+            flops = Ho * Wo * self.embed_dim * self.in_chans * (self.patch_size[0] * self.patch_size[1])
+        if self.norm is not None:
+            flops += Ho * Wo * self.embed_dim
+        return flops
 
 class PosCNN(nn.Module):
     def __init__(self, in_chans, embed_dim=768, s=1):

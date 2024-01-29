@@ -15,7 +15,7 @@ from utils.load_utils import load_pretrain
 from utils.logger import get_logger
 
 class EncoderDecoder(nn.Module):
-    def __init__(self, cfg=None, criterion=nn.CrossEntropyLoss(reduction='mean', ignore_index=255), norm_layer=nn.BatchNorm2d, test=False):
+    def __init__(self, cfg=None, criterion=nn.CrossEntropyLoss(reduction='mean', ignore_index=255), norm_layer=nn.LayerNorm, test=False):
         super(EncoderDecoder, self).__init__()
         self.channels = cfg.MODEL.decoder_embed_dim
         self.norm_layer = norm_layer
@@ -27,17 +27,17 @@ class EncoderDecoder(nn.Module):
         if cfg.MODEL.backbone == 'mra_tiny':
             self.logger.info('Using backbone: Segformer-B0')
             from .encoders.mra_transformer import mit_b0 as backbone
-            self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
+            self.backbone = backbone(fuse_cfg=cfg, norm_layer = norm_layer)
         
         elif cfg.MODEL.backbone == 'mra_small':
             self.logger.info('Using backbone: Segformer-B1')
             from .encoders.mra_transformer import mit_b1 as backbone
-            self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
+            self.backbone = backbone(fuse_cfg=cfg, norm_layer=norm_layer)
         
         elif cfg.MODEL.backbone == 'mra_base':
             self.logger.info('Using backbone: Segformer-B2')
             from .encoders.mra_transformer import mit_b2 as backbone
-            self.backbone = backbone(fuse_cfg=cfg, norm_fuse=norm_layer)
+            self.backbone = backbone(fuse_cfg=cfg, norm_layer=norm_layer)
         else:
             self.logger.error('Backbone not found!!! Currently only support mit_b0 - mit_b5')
 

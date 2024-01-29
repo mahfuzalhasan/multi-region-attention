@@ -10,7 +10,7 @@ import time
 
 class MultiScaleAttention(nn.Module):
     def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., 
-                    proj_drop=0., sr_ratio=1, n_local_region_scales = 3, window_size=7, img_size=(32, 32)):
+                    proj_drop=0., n_local_region_scales = 3, window_size=7, img_size=(32, 32)):
         super().__init__()
         assert dim % num_heads == 0, f"dim {dim} should be divided by num_heads {num_heads}."
 
@@ -20,6 +20,7 @@ class MultiScaleAttention(nn.Module):
         self.scale = qk_scale or head_dim ** -0.5
         self.window_size = window_size
         self.n_local_region_scales = n_local_region_scales
+        self.img_size = img_size
 
         assert self.num_heads%n_local_region_scales == 0
         # Linear embedding
@@ -28,21 +29,7 @@ class MultiScaleAttention(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
-        # self.group_size = self.num_heads//self.n_local_region_scales
-        # self.H = img_size[0]
-        # self.W = img_size[1]
-        # self.N_g = (self.H//self.window_size * self.W//self.window_size)      # number of group without downsampling
-        # self.projections = []
-        # for i in range(1, self.n_local_region_scales):
-        #     cur_size = self.H//pow(2,i) * self.W//pow(2,i)
-        #     cur_ng = cur_size // (self.window_size**2)   
-        #     self.projections.append(nn.Conv2d(cur_ng, self.N_g, 1))
-        # self.projections = nn.ModuleList(self.projections)
-
-
-
-
-    
+        
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -103,6 +90,7 @@ class MultiScaleAttention(nn.Module):
         self.attn_mat_per_head = []
         
         for i in range(self.n_local_region_scales):
+
             q_g = q[:, i*group_size:i*group_size+group_size, :, :]
             k_g = k[:, i*group_size:i*group_size+group_size, :, :]
             v_g = v[:, i*group_size:i*group_size+group_size, :, :]
@@ -110,49 +98,42 @@ class MultiScaleAttention(nn.Module):
             q_g = q_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2)
             k_g = k_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2)
             v_g = v_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2)
+            
+            ## pooling per group using adaptive avg pool
             output_size = (self.H//pow(2,i), self.W//pow(2,i))
             if i>0:
                 q_g = F.adaptive_avg_pool2d(q_g, output_size)
                 k_g = F.adaptive_avg_pool2d(k_g, output_size)
                 v_g = F.adaptive_avg_pool2d(v_g, output_size)
-
+            ############################################
             n_region = (output_size[0]//self.window_size) * (output_size[1]//self.window_size)
 
             q_g = q_g.permute(0, 2, 3, 1)
             k_g = k_g.permute(0, 2, 3, 1)
             v_g = v_g.permute(0, 2, 3, 1)
 
-            # print('q_g: ',q_g.shape)
-            # print('k_g: ',k_g.shape)
-            # print('v_g: ',v_g.shape)
-
+            # print('q,k,v normal: ',q_g.shape, k_g.shape, v_g.shape)
             q_g = self.patchify(q_g)
             k_g = self.patchify(k_g)
             v_g = self.patchify(v_g)
 
-            # print(q_g.shape, k_g.shape, v_g.shape)
+            # print('group: ',i)
+            # print('q,k,v pathified: ',q_g.shape, k_g.shape, v_g.shape)
             
             y, attn = self.attention(q_g, k_g, v_g)
-            # print(f'y:{y.shape} attn:{attn.shape}')
-            
             y = y.reshape(B, group_size, n_region, -1, C//self.num_heads)
-            # print(f'y reshape:{y.shape} attn:{attn.shape}')
+            # print('attention out: ',y.shape)
             if i>0:
                 repetition_factor = (N_g//y.shape[2])
                 y = y.repeat(1, 1, repetition_factor, 1, 1)
-                # print(f'y repeat:{y.shape}')
+                # print('attention out repeat: ',y.shape)
             self.attn_outcome_per_group.append(y)
 
-        # for y in self.attn_outcome_per_group:
-        #     print(y.shape)
-        
         # # #concatenating multi-group attention
         attn_fused = torch.cat(self.attn_outcome_per_group, axis=1)
-        # print('attn_fused:',attn_fused.shape)
+        # print('concatL ',attn_fused.shape)
         attn_fused = attn_fused.reshape(B, self.num_heads, -1, C//self.num_heads)
-        # print('attn_fused reshape:',attn_fused.shape)
         attn_fused = attn_fused.permute(0, 2, 1, 3).contiguous().reshape(B, N, C)
-        # print('reshaped attn_fused:',attn_fused.shape)
         attn_fused = self.proj(attn_fused)
         attn_fused = self.proj_drop(attn_fused )
         return attn_fused
@@ -187,11 +168,11 @@ class MultiScaleAttention(nn.Module):
 if __name__=="__main__":
     # #######print(backbone)
     B = 4
-    C = 384
-    H = 14
-    W = 14
+    C = 768
+    H = 7
+    W = 7
     # device = 'cuda:1'
-    ms_attention = MultiScaleAttention(C, num_heads=12, n_local_region_scales=2, window_size=7)
+    ms_attention = MultiScaleAttention(C, num_heads=24, n_local_region_scales=1, window_size=7)
     # ms_attention = ms_attention.to(device)
     # # ms_attention = nn.DataParallel(ms_attention, device_ids = [0,1])
     # # ms_attention.to(f'cuda:{ms_attention.device_ids[0]}', non_blocking=True)

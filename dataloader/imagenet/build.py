@@ -15,10 +15,17 @@ from timm.data import Mixup
 from timm.data import create_transform
 # from timm.data.transforms import _pil_interp
 
-from .samplers import SubsetRandomSampler
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+
+
+from samplers import SubsetRandomSampler
 
 from datasets import load_dataset
-from .HFDataset import HFDataset
+from HFDataset import HFDataset
+
+import configs.config_imagenet
 
 
 def build_loader(config):
@@ -132,7 +139,7 @@ def build_transform(is_train, config):
             re_count=config.AUG.RECOUNT,
             interpolation=config.DATASET.INTERPOLATION,
         )
-        # print("transform: ",transform)
+        print("transform: ",transform)
         if not resize_im:
             # replace RandomResizedCropAndInterpolation with
             # RandomCrop
@@ -157,3 +164,9 @@ def build_transform(is_train, config):
     t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
     # print('imagenet mean and std: ',IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
     return transforms.Compose(t)
+
+
+if __name__=="__main__":
+    # from configs.config_imagenet import config
+
+    build_transform(True, configs.config_imagenet.config)

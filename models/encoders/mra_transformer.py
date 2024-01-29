@@ -14,7 +14,7 @@ sys.path.append(model_dir)
 
 import torch
 import torch.nn as nn
-from mra_helper import OverlapPatchEmbed, Block, PosCNN
+from mra_helper import OverlapPatchEmbed, Block, PosCNN, PatchEmbed
 # import sys
 # sys.path.append('..')
 from configs.config_imagenet import config as cfg
@@ -30,23 +30,24 @@ from utils.logger import get_logger
 class MRATransformer(nn.Module):
     def __init__(self, img_size=(1024, 1024), patch_size=4, in_chans=3, num_classes=1000, embed_dims=[96, 192, 384, 768], 
                  num_heads=[3, 6, 12, 24], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
-                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, norm_fuse=nn.BatchNorm2d,
+                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, local_region_scales=[3, 3, 2, 1], 
                  depths=[2, 2, 6, 2]):
         super().__init__()
         self.num_classes = num_classes
         self.depths = depths
         self.logger = get_logger()
+        self.img_size = img_size
         # print('img_size: ',img_size)
 
         # patch_embed
-        self.patch_embed1 = OverlapPatchEmbed(patch_size=7, stride=4, in_chans=in_chans,
-                                              embed_dim=embed_dims[0])
-        self.patch_embed2 = OverlapPatchEmbed(patch_size=3, stride=2, in_chans=embed_dims[0],
-                                              embed_dim=embed_dims[1])
-        self.patch_embed3 = OverlapPatchEmbed(patch_size=3, stride=2, in_chans=embed_dims[1],
-                                              embed_dim=embed_dims[2])
-        self.patch_embed4 = OverlapPatchEmbed(patch_size=3, stride=2, in_chans=embed_dims[2],
-                                              embed_dim=embed_dims[3])
+        self.patch_embed1 = PatchEmbed(img_size = self.img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dims[0], 
+                                       norm_layer=norm_layer)
+        self.patch_embed2 = PatchEmbed(img_size=(img_size[0]// 4,img_size[1]//4),patch_size=2, in_chans=embed_dims[0],
+                                              embed_dim=embed_dims[1], norm_layer=norm_layer)
+        self.patch_embed3 = PatchEmbed(img_size=(img_size[0]//8, img_size[1]//8), patch_size=2, in_chans=embed_dims[1],
+                                              embed_dim=embed_dims[2], norm_layer=norm_layer)
+        self.patch_embed4 = PatchEmbed(img_size=(img_size[0]//16, img_size[1]//16), patch_size=2, in_chans=embed_dims[2],
+                                              embed_dim=embed_dims[3], norm_layer=norm_layer)
         # transformer encoder
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         cur = 0
@@ -56,47 +57,38 @@ class MRATransformer(nn.Module):
             [PosCNN(embed_dim, embed_dim) for embed_dim in embed_dims]
         )
         # 56x56
-        local_region_shape = [7, 7, 14]
+        
         self.block1 = nn.ModuleList([Block(
             dim=embed_dims[0], num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            local_region_shape=local_region_shape, img_size=(img_size[0]// 4,img_size[1]//4))
+            n_local_region_scales=local_region_scales[0], img_size=(img_size[0]// 4,img_size[1]//4))
             for i in range(depths[0])])
         self.norm1 = norm_layer(embed_dims[0])
-
         cur += depths[0]
+
         # 28x28
-        n_head = num_heads[1]   # 6
-        local_region_shape = [7 for i in range(n_head//2)]
-        local_region_shape.extend([14 for i in range(n_head//2)])
         self.block2 = nn.ModuleList([Block(
-            dim=embed_dims[1], num_heads=n_head, mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
+            dim=embed_dims[1], num_heads=num_heads[1], mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            local_region_shape=local_region_shape, img_size=(img_size[0]//8, img_size[1]//8))
+            n_local_region_scales=local_region_scales[1], img_size=(img_size[0]//8, img_size[1]//8))
             for i in range(depths[1])])
         self.norm2 = norm_layer(embed_dims[1])
-
         cur += depths[1]
+
         # 14x14
-        n_head = num_heads[2]   # 12
-        local_region_shape = [3 for i in range(n_head//2)]
-        local_region_shape.extend([7 for i in range(n_head//2)])
         self.block3 = nn.ModuleList([Block(
-            dim=embed_dims[2], num_heads=n_head, mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
+            dim=embed_dims[2], num_heads=num_heads[2], mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            local_region_shape=local_region_shape, img_size=(img_size[0]// 16,img_size[1]//16))
+            n_local_region_scales=local_region_scales[2], img_size=(img_size[0]// 16,img_size[1]//16))
             for i in range(depths[2])])
         self.norm3 = norm_layer(embed_dims[2])
-
         cur += depths[2]
+
         #7x7
-        n_head = num_heads[3]   # 24
-        local_region_shape = [1 for i in range(n_head//2)]  # Global --> 7x7
-        local_region_shape.extend([3 for i in range(n_head//2)])
         self.block4 = nn.ModuleList([Block(
-            dim=embed_dims[3], num_heads=n_head, mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
+            dim=embed_dims[3], num_heads=num_heads[3], mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            local_region_shape=local_region_shape, g_attn=False, img_size=(img_size[0]// 32,img_size[1]//32))
+            n_local_region_scales=local_region_scales[3], img_size=(img_size[0]// 32,img_size[1]//32))
             for i in range(depths[3])])             
         self.norm4 = norm_layer(embed_dims[3])
 
@@ -158,7 +150,7 @@ class MRATransformer(nn.Module):
         for j,blk in enumerate(self.block1):
             x_rgb = blk(x_rgb, H, W)
             if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
+                x_rgb = x_rgb + self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm1(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 1 - Output: {}'.format(x_rgb.shape))
@@ -171,7 +163,7 @@ class MRATransformer(nn.Module):
         for j,blk in enumerate(self.block2):
             x_rgb = blk(x_rgb, H, W)
             if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
+                x_rgb = x_rgb + self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm2(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 2 - Output: {}'.format(x_rgb.shape))
@@ -184,7 +176,7 @@ class MRATransformer(nn.Module):
         for j,blk in enumerate(self.block3):
             x_rgb = blk(x_rgb, H, W)
             if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
+                x_rgb = x_rgb + self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm3(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 3 - Output: {}'.format(x_rgb.shape))
@@ -198,13 +190,13 @@ class MRATransformer(nn.Module):
         for j,blk in enumerate(self.block4):
             x_rgb = blk(x_rgb, H, W)
             if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
-        x_rgb = self.norm4(x_rgb)
+                x_rgb = x_rgb + self.pos_block[stage](x_rgb, H, W)
+        x_rgb = self.norm4(x_rgb)   # B, L, C
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 4 - Output: {}'.format(x_rgb.shape))
         # print('Stage 4 - Output: {}'.format(x_rgb.shape))
 
-        # B, 768, 49
+        # B, 768, 7, 7
         return x_rgb
 
     def forward(self, x_rgb):
@@ -238,8 +230,8 @@ class mit_b0(MRATransformer):
         super(mit_b0, self).__init__(
             img_size = img_size, patch_size = 4, embed_dims=[96, 192, 384, 768], 
             num_heads=heads, mlp_ratios=[4, 4, 4, 4],qkv_bias=True, 
-            norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 6, 2], 
-            drop_rate=fuse_cfg.MODEL.DROP_RATE, drop_path_rate=0.1)
+            norm_layer=partial(nn.LayerNorm, eps=1e-6), local_region_scales = [3, 3, 2, 1], depths=[2, 2, 6, 2], 
+            drop_rate=fuse_cfg.MODEL.DROP_RATE, drop_path_rate=0.2)
 
 
 class mit_b1(MRATransformer):

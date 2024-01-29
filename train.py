@@ -4,6 +4,7 @@ import argparse
 import datetime
 import numpy as np
 import sys
+from functools import partial
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -92,13 +93,14 @@ def Main(args):
     else:
         criterion = torch.nn.CrossEntropyLoss()
 
-    model=segmodel(cfg=config, criterion=criterion, norm_layer=nn.BatchNorm2d)
+    model=segmodel(cfg=config, criterion=criterion, norm_layer=partial(nn.LayerNorm, eps=1e-6))
     model.to(dist.get_rank())
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[dist.get_rank()])
 
-    config.TRAIN.BASE_LR = config.TRAIN.BASE_LR * config.DATASET.BATCH_SIZE * dist.get_world_size() / 512.0
-    config.TRAIN.WARMUP_LR = config.TRAIN.WARMUP_LR * config.DATASET.BATCH_SIZE * dist.get_world_size() / 512.0
-    config.TRAIN.MIN_LR = config.TRAIN.MIN_LR * config.DATASET.BATCH_SIZE * dist.get_world_size() / 512.0
+    total_batch_size = config.DATASET.BATCH_SIZE * dist.get_world_size()
+    config.TRAIN.BASE_LR = config.TRAIN.BASE_LR * total_batch_size / 512.0
+    config.TRAIN.WARMUP_LR = config.TRAIN.WARMUP_LR * total_batch_size / 512.0
+    config.TRAIN.MIN_LR = config.TRAIN.MIN_LR * total_batch_size / 512.0
 
     def count_parameters(model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
