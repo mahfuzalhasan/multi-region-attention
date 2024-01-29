@@ -55,7 +55,7 @@ C.DATASET.ZIP_MODE = False
 # Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.
 C.DATASET.PIN_MEMORY = True
 # Number of data loading threads
-C.DATASET.NUM_WORKERS = 8
+C.DATASET.NUM_WORKERS = 6
 ##################
 
 
@@ -123,7 +123,6 @@ C.TRAIN.MIN_LR = 5e-6
 C.TRAIN.ACCUMULATION_STEPS = 0
 
 C.TRAIN.nepochs = 300
-C.TRAIN.num_workers = 6
 
 C.TRAIN.warm_up_epoch = 20
 C.TRAIN.CLIP_GRAD = 5.0
