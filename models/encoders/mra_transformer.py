@@ -150,7 +150,7 @@ class MRATransformer(nn.Module):
         for j,blk in enumerate(self.block1):
             x_rgb = blk(x_rgb, H, W)
             if j==0:
-                x_rgb = x_rgb + self.pos_block[stage](x_rgb, H, W)
+                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm1(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 1 - Output: {}'.format(x_rgb.shape))
@@ -163,7 +163,7 @@ class MRATransformer(nn.Module):
         for j,blk in enumerate(self.block2):
             x_rgb = blk(x_rgb, H, W)
             if j==0:
-                x_rgb = x_rgb + self.pos_block[stage](x_rgb, H, W)
+                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm2(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 2 - Output: {}'.format(x_rgb.shape))
@@ -176,7 +176,7 @@ class MRATransformer(nn.Module):
         for j,blk in enumerate(self.block3):
             x_rgb = blk(x_rgb, H, W)
             if j==0:
-                x_rgb = x_rgb + self.pos_block[stage](x_rgb, H, W)
+                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm3(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 3 - Output: {}'.format(x_rgb.shape))
@@ -190,7 +190,7 @@ class MRATransformer(nn.Module):
         for j,blk in enumerate(self.block4):
             x_rgb = blk(x_rgb, H, W)
             if j==0:
-                x_rgb = x_rgb + self.pos_block[stage](x_rgb, H, W)
+                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm4(x_rgb)   # B, L, C
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 4 - Output: {}'.format(x_rgb.shape))
@@ -229,7 +229,7 @@ class mit_b0(MRATransformer):
         heads = fuse_cfg.MODEL.heads    #3,6,12,24
         super(mit_b0, self).__init__(
             img_size = img_size, patch_size = 4, embed_dims=[96, 192, 384, 768], 
-            num_heads=heads, mlp_ratios=[4, 4, 4, 4],qkv_bias=True, 
+            num_heads=heads, mlp_ratios=[4, 4, 4, 4], qkv_bias=True, 
             norm_layer=partial(nn.LayerNorm, eps=1e-6), local_region_scales = [3, 3, 2, 1], depths=[2, 2, 6, 2], 
             drop_rate=fuse_cfg.MODEL.DROP_RATE, drop_path_rate=fuse_cfg.MODEL.DROP_PATH_RATE)
 
