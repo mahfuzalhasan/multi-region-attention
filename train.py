@@ -52,8 +52,8 @@ def Main(args):
     else:
         raise NotImplementedError
 
-    config.SYSTEM.device_ids = [i for i in range(args.devices)]
-    config.DATASET.name = args.dataset
+    config.SYSTEM.DEVICE_IDS = [i for i in range(args.devices)]
+    config.DATASET.NAME = args.dataset
     config.DATASET.BATCH_SIZE = args.batchsize
 
     dist_backend = 'nccl'
@@ -80,7 +80,7 @@ def Main(args):
         print(f"\n iteration in one epoch: len_dl::: train:{len(data_loader_train)} val:{len(data_loader_val)}")
         print(f"\n batch size:{config.DATASET.BATCH_SIZE} \n")
     
-        save_log = os.path.join(config.WRITE.log_dir, str(run_id))
+        save_log = os.path.join(config.WRITE.LOG_DIR, str(run_id))
         os.makedirs(save_log, exist_ok=True)
         writer = SummaryWriter(save_log)
 
@@ -114,8 +114,8 @@ def Main(args):
     # config.TRAIN.WARMUP_LR = linear_scaled_warmup_lr
     # config.TRAIN.MIN_LR = linear_scaled_min_lr
     
-    params_list = []
-    params_list = group_weight(params_list, model, nn.BatchNorm2d, base_lr)
+    # params_list = []
+    # params_list = group_weight(params_list, model, nn.BatchNorm2d, base_lr)
 
     optimizer = build_optimizer(config, model)
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
@@ -125,16 +125,16 @@ def Main(args):
 
     starting_epoch = 0
     max_accuracy = None
-    if config.TRAIN.resume_train:
+    if config.TRAIN.RESUME_TRAIN:
         print('Loading model to resume train')
-        state_dict = torch.load(config.TRAIN.resume_model_path)
+        state_dict = torch.load(config.TRAIN.RESUME_MODEL_PATH)
         model.module.load_state_dict(state_dict['model'])
         optimizer.load_state_dict(state_dict['optimizer'])
         lr_scheduler.load_state_dict(state_dict['lr_scheduler'])
         starting_epoch = state_dict['epoch']
         max_accuracy = state_dict['max_accuracy']
         old_run_id = state_dict['run_id']
-        print('resuming training with model: ', config.TRAIN.resume_model_path)
+        print('resuming training with model: ', config.TRAIN.RESUME_MODEL_PATH)
         print('resuming experiment from: ', old_run_id)
 
     n_params = count_parameters(model)
@@ -143,7 +143,7 @@ def Main(args):
     
     torch.cuda.synchronize()
     start_time = time.time()
-    for epoch in range(starting_epoch, config.TRAIN.nepochs):
+    for epoch in range(starting_epoch, config.TRAIN.EPOCHS):
         model.train()
         optimizer.zero_grad()
         
@@ -182,13 +182,13 @@ def Main(args):
             batch_time.update(time.time() - end)
             norm_meter.update(grad_norm)
 
-            if idx % config.TRAIN.train_print_stats == 0:
+            if idx % config.TRAIN.PRINT_FREQ == 0:
                 lr = optimizer.param_groups[0]['lr']
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 etas = batch_time.avg * (num_steps - idx)
                 if dist.get_rank() == 0:
                     print(
-                        f'Train: [{epoch}/{config.TRAIN.nepochs}][{idx}/{num_steps}]\t'
+                        f'Train: [{epoch}/{config.TRAIN.EPOCHS}][{idx}/{num_steps}]\t'
                         f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.6f}\t'
                         f'batch time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                         f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
@@ -220,13 +220,13 @@ def Main(args):
             model_save_start = time.time()
             if acc1 > max_accuracy:
                 max_accuracy = max(max_accuracy, acc1)
-                save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir, best=True)
+                save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.CHECKPOINT_DIR, best=True)
             #save model every 25 epochs before checkpoint_start_epoch = 200
-            if (epoch <= config.MODEL.checkpoint_start_epoch) and (epoch % (config.MODEL.checkpoint_step) == 0) and (epoch>0):
-                save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
+            if (epoch <= config.MODEL.CHECKPOINT_START_EPOCH) and (epoch % (config.MODEL.CHECKPOINT_STEP) == 0) and (epoch>0):
+                save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.CHECKPOINT_DIR)
             #save model every 10 epochs after checkpoint_start_epoch=200. Save last one too. 
-            elif (epoch > config.MODEL.checkpoint_start_epoch) and (epoch % config.MODEL.checkpoint_step_later == 0) or (epoch == config.TRAIN.nepochs-1):
-                save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.checkpoint_dir)
+            elif (epoch > config.MODEL.CHECKPOINT_START_EPOCH) and (epoch % config.MODEL.CHECKPOINT_STEP_LATER == 0) or (epoch == config.TRAIN.EPOCHS-1):
+                save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, config.WRITE.CHECKPOINT_DIR)
             model_save_time = time.time() - model_save_start
             print(f"EPOCH {epoch} model save takes {datetime.timedelta(seconds=int(model_save_time))}")
 
@@ -256,8 +256,8 @@ def Main(args):
     print(f'rank:{dist.get_rank()} - Total Training time {total_time_str}')
     dist.destroy_process_group()
 
-def save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, checkpoint_dir, best=False):
-    save_dir = os.path.join(checkpoint_dir, str(run_id))
+def save_model(model, optimizer, lr_scheduler, epoch, run_id, max_accuracy, CHECKPOINT_DIR, best=False):
+    save_dir = os.path.join(CHECKPOINT_DIR, str(run_id))
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     

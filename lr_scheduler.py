@@ -12,8 +12,8 @@ from timm.scheduler.scheduler import Scheduler
 
 
 def build_scheduler(config, optimizer, n_iter_per_epoch):
-    num_steps = int(config.TRAIN.nepochs * n_iter_per_epoch)
-    warmup_steps = int(config.TRAIN.warm_up_epoch * n_iter_per_epoch)
+    num_steps = int(config.TRAIN.EPOCHS * n_iter_per_epoch)
+    warmup_steps = int(config.TRAIN.WARMUP_EPOCHS * n_iter_per_epoch)
     decay_steps = int(config.TRAIN.LR_SCHEDULER.DECAY_EPOCHS * n_iter_per_epoch)
 
     lr_scheduler = None

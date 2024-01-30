@@ -16,7 +16,7 @@ import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 def compute_metric(results, config):
-    hist = np.zeros((config.DATASET.num_classes, config.DATASET.num_classes))
+    hist = np.zeros((config.DATASET.NUM_CLASSES, config.DATASET.NUM_CLASSES))
     correct = 0
     labeled = 0
     count = 0
@@ -228,11 +228,11 @@ def val_imagenet(epoch, data_loader, model, config):
     
 @torch.no_grad()
 def validation(epoch, val_loader, model, config):
-    if config.DATASET.name == 'cityscapes':
+    if config.DATASET.NAME == 'cityscapes':
         return val_cityscape(epoch, val_loader, model, config)
-    elif config.DATASET.name == 'ade20k':
+    elif config.DATASET.NAME == 'ade20k':
         return val_ade(epoch, val_loader, model, config)
-    elif config.DATASET.name == 'imagenet' or config.DATASET.name == 'tiny-imagenet':
+    elif config.DATASET.NAME == 'imagenet' or config.DATASET.NAME == 'tiny-imagenet':
         print('validation imagenet', type(val_loader))
         return val_imagenet(epoch, val_loader, model, config)
     else:

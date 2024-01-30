@@ -30,7 +30,7 @@ import configs.config_imagenet
 
 def build_loader(config):
     # config.defrost()
-    dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config)
+    dataset_train, config.DATASET.NUM_CLASSES = build_dataset(is_train=True, config=config)
     # config.freeze()
     print(f"global rank {dist.get_rank()} successfully build train dataset")
     dataset_val, _ = build_dataset(is_train=False, config=config)
@@ -103,14 +103,14 @@ def build_loader(config):
 
 def build_dataset(is_train, config):
     transform = build_transform(is_train, config)
-    if config.DATASET.name == 'imagenet':
+    if config.DATASET.NAME == 'imagenet':
         hf_dataset = load_dataset('imagenet-1k')
         nb_classes = 1000
         if is_train:
             hf_dataset = hf_dataset['train']
         else:
             hf_dataset = hf_dataset['validation']
-    elif config.DATASET.name == 'tiny-imagenet':
+    elif config.DATASET.NAME == 'tiny-imagenet':
         hf_dataset = load_dataset('Maysee/tiny-imagenet')
         nb_classes = 200
         if is_train:

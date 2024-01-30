@@ -21,12 +21,12 @@ C.SYSTEM.abs_dir = osp.realpath(".")
 #C.SYSTEM.device_ids = [0] # for mahdi (lab-pc)
 # C.SYSTEM.device_ids = [0, 1] # for mahdi (newton)
 # C.SYSTEM.device_ids = [0, 1, 2, 3] # for FICS
-C.SYSTEM.device_ids = [0, 1, 2, 3] # for nautilus
+C.SYSTEM.DEVICE_IDS = [0, 1, 2, 3] # for nautilus
 
 
 """Dataset Config"""
 C.DATASET = edict()
-C.DATASET.name = 'imagenet'
+C.DATASET.NAME = 'imagenet'
 C.DATASET.root = './data/imagenet/ILSVRC/Data/CLS-LOC'
 # C.DATASET.DATA_PATH = osp.join(C.SYSTEM.root_dir, 'data/Cityscapes')
 C.DATASET.mode = 'RGB'
@@ -102,9 +102,11 @@ C.MODEL.pretrained_model = None #osp.join(C.SYSTEM.root_dir, 'pretrained/mit_b2_
 C.MODEL.heads = [3, 6, 12, 24]
 C.MODEL.decoder = 'ClassificationHead'#'MLPDecoder'
 C.MODEL.decoder_embed_dim = 768
-C.MODEL.checkpoint_start_epoch = 200
-C.MODEL.checkpoint_step = 25
-C.MODEL.checkpoint_step_later = 10
+
+C.MODEL.CHECKPOINT_START_EPOCH = 200
+C.MODEL.CHECKPOINT_STEP = 25
+C.MODEL.CHECKPOINT_STEP_LATER = 10
+
 C.MODEL.NAME = 'mra_tiny'
 C.MODEL.LABEL_SMOOTHING = 0.1
 # Dropout rate
@@ -122,18 +124,17 @@ C.TRAIN.MIN_LR = 5e-6
 
 C.TRAIN.ACCUMULATION_STEPS = 0
 
-C.TRAIN.nepochs = 300
-
-C.TRAIN.warm_up_epoch = 20
+C.TRAIN.EPOCHS = 300
+C.TRAIN.WARMUP_EPOCHS = 20
 C.TRAIN.CLIP_GRAD = 5.0
 C.TRAIN.WEIGHT_DECAY = 0.05
 
 C.TRAIN.fix_bias = True
 C.TRAIN.bn_eps = 1e-3
 C.TRAIN.bn_momentum = 0.1
-C.TRAIN.train_print_stats = 300
-C.TRAIN.resume_train = False 
-C.TRAIN.resume_model_path = osp.join(C.SYSTEM.root_dir, 'results/saved_models/12-29-23_2141/model_195.pth')
+C.TRAIN.PRINT_FREQ = 300
+C.TRAIN.RESUME_TRAIN = False 
+C.TRAIN.RESUME_MODEL_PATH = osp.join(C.SYSTEM.root_dir, 'results/saved_models/12-29-23_2141/model_195.pth')
 
 # LR scheduler
 C.TRAIN.LR_SCHEDULER = edict()
@@ -171,8 +172,8 @@ add_path(osp.join(C.SYSTEM.root_dir))
 
 """SAVE Config"""
 C.WRITE = edict()
-C.WRITE.log_dir = "/project/results/logs"
-C.WRITE.checkpoint_dir = "/project/results/saved_models/"
+C.WRITE.LOG_DIR = "/project/results/logs"
+C.WRITE.CHECKPOINT_DIR = "/project/results/saved_models/"
 
 # -----------------------------------------------------------------------------
 # Miscellanous
