@@ -309,12 +309,12 @@ class PosCNN(nn.Module):
     def forward(self, x, H, W):
         B, N, C = x.shape
         feat_token = x
-        cnn_feat = feat_token.transpose(1, 2).view(B, C, H, W)
+        cnn_feat = feat_token.transpose(1, 2).contiguous().view(B, C, H, W)
         if self.s == 1:
             x = self.proj(cnn_feat) + cnn_feat
         else:
             x = self.proj(cnn_feat)
-        x = x.flatten(2).transpose(1, 2)
+        x = x.flatten(2).transpose(1, 2).contiguous()
         return x
 
     def no_weight_decay(self):

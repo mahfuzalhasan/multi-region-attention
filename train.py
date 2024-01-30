@@ -49,6 +49,7 @@ def Main(args):
     print('config_filename: ',config_filename)    
     if config_filename == 'imagenet':
         from configs.config_imagenet import config
+        print(f'config loaded')
     else:
         raise NotImplementedError
 
