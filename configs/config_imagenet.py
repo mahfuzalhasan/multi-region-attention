@@ -202,10 +202,10 @@ C.LOCAL_RANK = 0
 
 ### Might need it for multiscale evaluation
 exp_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
-C.log_file = C.WRITE.log_dir + '/log_' + exp_time + '.log'
+C.log_file = C.WRITE.LOG_DIR + '/log_' + exp_time + '.log'
 C.link_log_file = C.log_file + '/log_last.log'
-C.val_log_file = C.WRITE.log_dir + '/val_' + exp_time + '.log'
-C.link_val_log_file = C.WRITE.log_dir + '/val_last.log'
+C.val_log_file = C.WRITE.LOG_DIR + '/val_' + exp_time + '.log'
+C.link_val_log_file = C.WRITE.LOG_DIR + '/val_last.log'
 
 if __name__ == '__main__':
     print(config.nepochs)
