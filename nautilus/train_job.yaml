@@ -13,7 +13,7 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-RTX-A6000
+                - NVIDIA-A100-SXM4-80GB
       containers:
       - name: seg-container
         image: ubuntu
