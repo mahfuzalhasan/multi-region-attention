@@ -99,7 +99,7 @@ C.AUG.MIXUP_MODE = 'batch'
 C.MODEL = edict()
 C.MODEL.backbone = 'mra_tiny'
 C.MODEL.pretrained_model = None #osp.join(C.SYSTEM.root_dir, 'pretrained/mit_b2_imagenet.pth')
-C.MODEL.heads = [3, 6, 12, 24]
+C.MODEL.HEADS = [4, 6, 12, 24]
 C.MODEL.decoder = 'ClassificationHead'#'MLPDecoder'
 C.MODEL.decoder_embed_dim = 768
 

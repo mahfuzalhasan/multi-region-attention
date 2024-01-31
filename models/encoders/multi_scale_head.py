@@ -22,7 +22,7 @@ class MultiScaleAttention(nn.Module):
         self.n_local_region_scales = n_local_region_scales
         self.img_size = img_size
 
-        assert self.num_heads%n_local_region_scales == 0
+        # assert self.num_heads%n_local_region_scales == 0
         # Linear embedding
         self.q = nn.Linear(dim, dim, bias=qkv_bias)
         self.kv = nn.Linear(dim, dim * 2, bias=qkv_bias)
@@ -78,7 +78,7 @@ class MultiScaleAttention(nn.Module):
         B, N, C = x.shape
         assert N==self.H*self.W
 
-        group_size = self.num_heads//self.n_local_region_scales
+        group_size = int(math.ceil(self.num_heads/self.n_local_region_scales))
         
         # q,k,v --> B,h,N,Ch
         q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
@@ -90,10 +90,11 @@ class MultiScaleAttention(nn.Module):
         self.attn_mat_per_head = []
         
         for i in range(self.n_local_region_scales):
-
-            q_g = q[:, i*group_size:i*group_size+group_size, :, :]
-            k_g = k[:, i*group_size:i*group_size+group_size, :, :]
-            v_g = v[:, i*group_size:i*group_size+group_size, :, :]
+            n_local_head = self.num_heads - i*group_size if i==self.n_local_region_scales-1 else group_size
+            
+            q_g = q[:, i*group_size:i*group_size+n_local_head, :, :]
+            k_g = k[:, i*group_size:i*group_size+n_local_head, :, :]
+            v_g = v[:, i*group_size:i*group_size+n_local_head, :, :]
             # print(f'group:{i}')
             q_g = q_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2)
             k_g = k_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2)
@@ -116,13 +117,13 @@ class MultiScaleAttention(nn.Module):
             q_g = self.patchify(q_g)
             k_g = self.patchify(k_g)
             v_g = self.patchify(v_g)
-
-            # print('group: ',i)
-            # print('q,k,v pathified: ',q_g.shape, k_g.shape, v_g.shape)
-            
+            # print('q,k,v patchified: ',q_g.shape, k_g.shape, v_g.shape)
             y, attn = self.attention(q_g, k_g, v_g)
-            y = y.reshape(B, group_size, n_region, -1, C//self.num_heads)
+
+             
+            y = y.reshape(B, n_local_head, n_region, -1, C//self.num_heads)
             # print('attention out: ',y.shape)
+            
             if i>0:
                 repetition_factor = (N_g//y.shape[2])
                 y = y.repeat(1, 1, repetition_factor, 1, 1)
