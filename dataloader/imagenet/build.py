@@ -56,6 +56,10 @@ def build_loader(config):
     sampler_val = torch.utils.data.DistributedSampler(
         dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=False
     )
+    # sampler_val = torch.utils.data.SequentialSampler(
+    #     dataset_val, shuffle=False
+    # )
+
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train, sampler=sampler_train,

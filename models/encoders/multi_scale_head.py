@@ -29,6 +29,22 @@ class MultiScaleAttention(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
+
+        downsample_layers = []
+        if self.n_local_region_scales > 1:
+            for group in range(1, self.n_local_region_scales):
+                stride = int(pow(2, group))
+                padding = group - 1
+                if group == 1:
+                    dilation = 1
+                elif group == 2:
+                    dilation = 2
+                elif group == 3:
+                    dilation = 7
+                conv = nn.Conv2d(head_dim, head_dim, kernel_size=2, stride=stride, padding=padding, dilation=dilation, groups=head_dim)
+                downsample_layers.append(conv)
+        self.downsample_layers = nn.ModuleList(downsample_layers)
+
         
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -59,6 +75,8 @@ class MultiScaleAttention(nn.Module):
         patches = arr.reshape(B_nh, curr_h // self.window_size, self.window_size, curr_w // self.window_size, self.window_size, Ch)
         patches = patches.permute(0, 1, 3, 2, 4, 5).contiguous().reshape(-1, self.window_size**2, Ch)
         return patches
+
+
 
 
     def attention(self, q, k, v):
@@ -102,9 +120,9 @@ class MultiScaleAttention(nn.Module):
             ## pooling per group using adaptive avg pool
             output_size = (self.H//pow(2,i), self.W//pow(2,i))
             if i>0:
-                q_g = F.adaptive_avg_pool2d(q_g, output_size)
-                k_g = F.adaptive_avg_pool2d(k_g, output_size)
-                v_g = F.adaptive_avg_pool2d(v_g, output_size)
+                q_g = self.downsample_layers[i-1](q_g)
+                k_g = self.downsample_layers[i-1](k_g)
+                v_g = self.downsample_layers[i-1](v_g)
             ############################################
             n_region = (output_size[0]//self.window_size) * (output_size[1]//self.window_size)
 
@@ -112,7 +130,7 @@ class MultiScaleAttention(nn.Module):
             k_g = k_g.permute(0, 2, 3, 1)
             v_g = v_g.permute(0, 2, 3, 1)
 
-            # print('q,k,v normal: ',q_g.shape, k_g.shape, v_g.shape)
+            # print('group --> q,k,v normal: ',i, ":", q_g.shape, k_g.shape, v_g.shape)
             q_g = self.patchify(q_g)
             k_g = self.patchify(k_g)
             v_g = self.patchify(v_g)

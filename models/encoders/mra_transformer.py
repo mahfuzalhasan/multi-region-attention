@@ -92,6 +92,9 @@ class MRATransformer(nn.Module):
             for i in range(depths[3])])             
         self.norm4 = norm_layer(embed_dims[3])
 
+        self.avgpool = nn.AdaptiveAvgPool1d(1)
+        self.head = nn.Linear(embed_dims[3], num_classes) if self.num_classes > 0 else nn.Identity()
+
         # cur += depths[3]
 
         self.apply(self._init_weights)
@@ -192,12 +195,18 @@ class MRATransformer(nn.Module):
             if j==0:
                 x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm4(x_rgb)   # B, L, C
-        x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        # x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 4 - Output: {}'.format(x_rgb.shape))
+
+        x = x_rgb.transpose(1,2).contiguous()
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        cls_output = self.head(x)
+        # print(f'classification output:{cls_output.shape}')
         # print('Stage 4 - Output: {}'.format(x_rgb.shape))
 
         # B, 768, 7, 7
-        return x_rgb
+        return x_rgb, cls_output
 
     def forward(self, x_rgb):
         # print()
@@ -261,11 +270,15 @@ if __name__=="__main__":
     backbone = mit_b0(fuse_cfg=cfg, norm_layer = nn.BatchNorm2d)
     
     # ########print(backbone)
-    B = 4
+    B = 8
     C = 3
     H = 224
     W = 224
     device = 'cuda:1'
     rgb = torch.randn(B, C, H, W)
     outputs = backbone(rgb)
-    print(f'outputs:{outputs.size()}')
+    print(f'outputs:{outputs[0].size()} cls:{outputs[1].size()}')
+
+    # Assuming 'model' is your PyTorch model
+    total_params = sum(p.numel() for p in backbone.parameters() if p.requires_grad)
+    print(f"Total trainable parameters: {total_params}")
