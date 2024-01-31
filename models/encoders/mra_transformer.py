@@ -230,7 +230,7 @@ class mit_b0(MRATransformer):
         super(mit_b0, self).__init__(
             img_size = img_size, patch_size = 4, embed_dims=[128, 192, 384, 768], 
             num_heads=heads, mlp_ratios=[4, 4, 4, 4], qkv_bias=True, 
-            norm_layer=partial(nn.LayerNorm, eps=1e-6), local_region_scales = [4, 3, 2, 1], depths=[1, 1, 1, 1], 
+            norm_layer=partial(nn.LayerNorm, eps=1e-6), local_region_scales = [4, 3, 2, 1], depths=[2, 2, 6, 2], 
             drop_rate=fuse_cfg.MODEL.DROP_RATE, drop_path_rate=fuse_cfg.MODEL.DROP_PATH_RATE)
 
 
