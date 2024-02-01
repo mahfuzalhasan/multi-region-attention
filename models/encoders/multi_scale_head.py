@@ -113,9 +113,9 @@ class MultiScaleAttention(nn.Module):
             k_g = k[:, i*group_size:i*group_size+group_size, :, :]
             v_g = v[:, i*group_size:i*group_size+group_size, :, :]
             # print(f'group:{i}')
-            q_g = q_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2)
-            k_g = k_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2)
-            v_g = v_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2)
+            q_g = q_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2).contiguous()
+            k_g = k_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2).contiguous()
+            v_g = v_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2).contiguous()
             
             ## pooling per group using adaptive avg pool
             output_size = (self.H//pow(2,i), self.W//pow(2,i))
