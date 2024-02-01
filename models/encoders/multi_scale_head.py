@@ -32,14 +32,14 @@ class MultiScaleAttention(nn.Module):
 
         downsample_layers = []
         if self.n_local_region_scales > 1:
-            for group in range(1, self.n_local_region_scales):
-                stride = int(pow(2, group))
-                padding = group - 1
-                if group == 1:
+            for group_no in range(1, self.n_local_region_scales):
+                stride = int(pow(2, group_no))
+                padding = 0
+                if group_no == 1:
                     dilation = 1
-                elif group == 2:
-                    dilation = 2
-                elif group == 3:
+                elif group_no == 2:
+                    dilation = 3
+                elif group_no == 3:
                     dilation = 7
                 conv = nn.Conv2d(head_dim, head_dim, kernel_size=2, stride=stride, padding=padding, dilation=dilation, groups=head_dim)
                 downsample_layers.append(conv)
