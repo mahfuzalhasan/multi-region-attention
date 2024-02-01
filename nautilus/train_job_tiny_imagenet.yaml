@@ -1,0 +1,71 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job-tiny
+spec:
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: nvidia.com/gpu.product
+                operator: In
+                values:
+                - NVIDIA-RTX-A6000
+      containers:
+      - name: seg-container
+        image: ubuntu
+        command:
+          - sh
+          - -c
+          - |
+            apt update && \
+            apt install -y python3 python3-pip && \
+            pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
+            pip3 install timm==0.9.7 && \
+            pip3 install easydict==1.10 && \
+            pip3 install datasets && \
+            pip3 install termcolor && \
+            pip3 install tensorboardX && \
+            pip3 install -U "huggingface_hub[cli]" && \
+            huggingface-cli login --token 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 && \
+            apt-get update && \
+            apt-get install -y git && \
+            echo '===========installation successful==========' && \
+            mkdir -p /opt/repo/multi-region-attention && \
+            git clone --single-branch --branch ms-head-attn-conv-merge https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
+            apt update && \
+            echo 'git pulled successfully.' && \
+            cd /opt/repo/multi-region-attention && \
+            torchrun --standalone --nproc_per_node=4 train.py imagenet --devices 4 --dataset tiny-imagenet --batchsize 170 && \
+            echo '===========training executed successfully=========='
+        volumeMounts:
+        - name: data
+          mountPath: /project
+        - name: dshm
+          mountPath: /dev/shm
+        resources:
+          limits:
+            ephemeral-storage: "500Gi"
+            memory: 100Gi
+            cpu: "10"
+            nvidia.com/gpu: "4"
+          requests:
+            ephemeral-storage: "500Gi"
+            memory: 100Gi
+            cpu: "10"
+            nvidia.com/gpu: "4"
+        securityContext:
+          runAsUser: 0
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
+      - name: data
+        persistentVolumeClaim:
+          claimName: jawad-pvc 
+      restartPolicy: Never
+  backoffLimit: 0
+
