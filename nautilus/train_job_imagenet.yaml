@@ -15,7 +15,7 @@ spec:
                 values:
                 - NVIDIA-RTX-A6000
       containers:
-      - name: itj-container
+      - name: cls-container
         image: ubuntu
         command:
           - sh
@@ -65,7 +65,7 @@ spec:
           medium: Memory
       - name: data
         persistentVolumeClaim:
-          claimName: jawad-pvc 
+          claimName: mahfuz-pvc 
       restartPolicy: Never
   backoffLimit: 0
 

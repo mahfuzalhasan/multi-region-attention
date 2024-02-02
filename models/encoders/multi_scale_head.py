@@ -109,7 +109,7 @@ class MultiScaleAttention(nn.Module):
             
             local_head = self.num_heads//self.n_local_region_scales
             local_C = C//self.n_local_region_scales
-            qkv = temp[:, :, i*local_C:i*local_C+local_C, :, :]
+            qkv = temp[:, :, i*local_C:i*local_C + local_C, :, :]
             if i>0:
                 qkv = qkv.reshape(B*3, local_C, H, W)
                 qkv = self.downsample_layers[i-1](qkv)
