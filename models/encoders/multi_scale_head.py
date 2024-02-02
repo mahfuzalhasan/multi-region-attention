@@ -34,15 +34,25 @@ class MultiScaleAttention(nn.Module):
         downsample_layers = []
         if self.n_local_region_scales > 1:
             for group_no in range(1, self.n_local_region_scales):
-                stride = int(pow(2, group_no))
+                # stride = int(pow(2, group_no))
                 padding = 0
                 if group_no == 1:
-                    dilation = 1
+                    stride = 1
+                    padding = 1
+                    dilation = 1                    
                 elif group_no == 2:
-                    dilation = 3
+                    stride = 2
+                    padding = 2
+                    dilation = 2
                 elif group_no == 3:
-                    dilation = 7
-                conv = nn.Conv2d(self.local_dim, self.local_dim, kernel_size=2, stride=stride, padding=padding, dilation=dilation, groups=head_dim)
+                    stride = 4
+                    padding = 3
+                    dilation = 3                
+
+                conv = nn.Sequential(
+                                nn.Conv2d(self.local_dim, self.local_dim, kernel_size=3, stride=stride, padding=padding, dilation=dilation, groups=head_dim),
+                                nn.MaxPool2d(2, 2)
+                            )
                 downsample_layers.append(conv)
         self.downsample_layers = nn.ModuleList(downsample_layers)
 
@@ -110,7 +120,7 @@ class MultiScaleAttention(nn.Module):
             local_head = self.num_heads//self.n_local_region_scales
             local_C = C//self.n_local_region_scales
             qkv = temp[:, :, i*local_C:i*local_C + local_C, :, :]
-            if i>0:
+            if i > 0:
                 qkv = qkv.reshape(B*3, local_C, H, W)
                 qkv = self.downsample_layers[i-1](qkv)
                 qkv = qkv.reshape(B, 3, local_C, self.H//pow(2,i), self.W//pow(2,i))
