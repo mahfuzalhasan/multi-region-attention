@@ -157,7 +157,7 @@ class MRATransformer(nn.Module):
         x_rgb = self.norm1(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 1 - Output: {}'.format(x_rgb.shape))
-        # print('Stage 1 - Output: {}'.format(x_rgb.shape))
+        # print('########### Stage 1 - Output: {}'.format(x_rgb.shape))
 
         # stage 2
         stage += 1
@@ -170,7 +170,7 @@ class MRATransformer(nn.Module):
         x_rgb = self.norm2(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 2 - Output: {}'.format(x_rgb.shape))
-        # print('Stage 2 - Output: {}'.format(x_rgb.shape))
+        # print('############# Stage 2 - Output: {}'.format(x_rgb.shape))
 
         # stage 3
         stage += 1
@@ -183,7 +183,7 @@ class MRATransformer(nn.Module):
         x_rgb = self.norm3(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 3 - Output: {}'.format(x_rgb.shape))
-        # print('Stage 3 - Output: {}'.format(x_rgb.shape))
+        # print('###########Stage 3 - Output: {}'.format(x_rgb.shape))
 
         # stage 4
         stage += 1
@@ -197,6 +197,7 @@ class MRATransformer(nn.Module):
         x_rgb = self.norm4(x_rgb)   # B, L, C
         # x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 4 - Output: {}'.format(x_rgb.shape))
+        # print('########## Stage 4 - Output: {}'.format(x_rgb.shape))
 
         x = x_rgb.transpose(1,2).contiguous()
         x = self.avgpool(x)
