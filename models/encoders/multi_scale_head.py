@@ -22,6 +22,9 @@ class MultiScaleAttention(nn.Module):
         self.n_local_region_scales = n_local_region_scales
         self.img_size = img_size
         self.local_dim = self.dim//self.n_local_region_scales
+        self.local_head = self.num_heads//self.n_local_region_scales
+        self.H, self.W = img_size[0], img_size[1]
+        self.N_G = self.H//self.window_size * self.W//self.window_size
 
         assert self.num_heads%n_local_region_scales == 0
         # Linear embedding
@@ -30,32 +33,25 @@ class MultiScaleAttention(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
+        
 
         downsample_layers = []
+        upsample_layers = []
         if self.n_local_region_scales > 1:
             for group_no in range(1, self.n_local_region_scales):
-                # stride = int(pow(2, group_no))
-                padding = 0
-                if group_no == 1:
-                    stride = 1
-                    padding = 1
-                    dilation = 1                    
-                elif group_no == 2:
-                    stride = 2
-                    padding = 2
-                    dilation = 2
-                elif group_no == 3:
-                    stride = 4
-                    padding = 3
-                    dilation = 3                
-
+                stride = int(math.pow(2, group_no-1))
+                padding = group_no
+                dilation = group_no
                 conv = nn.Sequential(
                                 nn.Conv2d(self.local_dim, self.local_dim, kernel_size=3, stride=stride, padding=padding, dilation=dilation, groups=head_dim),
                                 nn.MaxPool2d(2, 2)
                             )
+                upconv = nn.ConvTranspose2d(self.local_dim, self.local_dim, kernel_size=3, stride=2, padding=1, output_padding=1)
                 downsample_layers.append(conv)
-        self.downsample_layers = nn.ModuleList(downsample_layers)
+                upsample_layers.append(upconv)
 
+        self.downsample_layers = nn.ModuleList(downsample_layers)
+        self.upsample_layers = nn.ModuleList(upsample_layers)
         
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -77,7 +73,7 @@ class MultiScaleAttention(nn.Module):
     # create non-overlapping windows of size=self.window_size
     # input arr --> (Bx lC X H x W 
     # output patches--> (BxNw) x (self.window_size^2) x lC/lH
-    def patchify(self, arr, local_head):
+    def windowing(self, arr):
         # print(arr.shape)
         B = arr.shape[0]
         local_C = arr.shape[1]
@@ -86,7 +82,7 @@ class MultiScaleAttention(nn.Module):
         
         arr_reshape = arr.view(B, local_C, H // self.window_size, self.window_size, W // self.window_size, self.window_size)
         arr_perm = arr_reshape.permute(0, 2, 4, 3, 5, 1).contiguous().reshape(-1, self.window_size* self.window_size, local_C)
-        arr_perm = arr_perm.reshape(-1, self.window_size* self.window_size, local_head, local_C // local_head).permute(0, 2, 1, 3).contiguous()        
+        arr_perm = arr_perm.reshape(-1, self.window_size* self.window_size, self.local_head, local_C // self.local_head).permute(0, 2, 1, 3).contiguous()        
         return arr_perm
 
 
@@ -97,6 +93,15 @@ class MultiScaleAttention(nn.Module):
         x = (attn @ v)
         # print(f'attn:{attn.shape} v:{v.shape}')
         return x, attn
+    def upsample(self, x, i):
+        B, h, r, N, l_C = x.shape
+        perm_x = x.reshape(B, h*l_C, r, 7, 7).permute(0, 1, 3, 4, 2).contiguous().reshape(B, h*l_C, 7, 7*r)
+        up_x = self.upsample_layers[i-1](perm_x)
+        upsampled_x = F.interpolate(up_x, size=(7, self.N_G*7), mode='nearest')
+        upsampled_x = upsampled_x.view(B, h, l_C, 7, 7, self.N_G).permute(0, 1, 5, 3, 4, 2).contiguous().reshape(B, h, self.N_G, -1, l_C)
+        return upsampled_x
+
+
 
     def forward(self, x, H, W):
         #####print('!!!!!!!!!!!!attention head: ',self.num_heads, ' !!!!!!!!!!')
@@ -107,17 +112,12 @@ class MultiScaleAttention(nn.Module):
         B, N, C = x.shape
         assert N==self.H*self.W
 
-        
         temp = self.qkv_proj(x).reshape(B, H, W, 3, C).permute(0, 3, 4, 1, 2)
         
-        N_g = self.H//self.window_size * self.W//self.window_size
         self.attn_outcome_per_group = []
         self.attn_mat_per_head = []
         
         for i in range(self.n_local_region_scales):
-            # print(f'$$$$$$$$$$ group:{i}$$$$$$$$$$$$$$$')
-            
-            local_head = self.num_heads//self.n_local_region_scales
             local_C = C//self.n_local_region_scales
             qkv = temp[:, :, i*local_C:i*local_C + local_C, :, :]
             if i > 0:
@@ -125,25 +125,19 @@ class MultiScaleAttention(nn.Module):
                 qkv = self.downsample_layers[i-1](qkv)
                 qkv = qkv.reshape(B, 3, local_C, self.H//pow(2,i), self.W//pow(2,i))
             qkv = qkv.permute(1, 0, 2, 3, 4)
-            q,k,v = qkv[0], qkv[1], qkv[2]      #B,l_C,H,W
-            # print(f'regular q:{q.shape} k:{k.shape} v:{v.shape}')
-            q = self.patchify(q, local_head)
-            k = self.patchify(k, local_head)
-            v = self.patchify(v, local_head)
-            
-            # print(f'windowing q:{q.shape} k:{k.shape} v:{v.shape}')
+            q,k,v = qkv[0], qkv[1], qkv[2]      #B, l_C, H, W
+        
+            q = self.windowing(q)
+            k = self.windowing(k)
+            v = self.windowing(v)
             
             output_size = (self.H//pow(2,i), self.W//pow(2,i))
             n_region = (output_size[0]//self.window_size) * (output_size[1]//self.window_size)
             
             y, attn = self.attention(q, k, v)
-            # print(f'output attn: {y.shape} ')
-            y = y.reshape(B, n_region, local_head, self.window_size* self.window_size, local_C // local_head).permute(0, 2, 1, 3, 4)
-            # print('reshaped out: ',y.shape)
+            y = y.reshape(B, n_region, self.local_head, self.window_size* self.window_size, local_C // self.local_head).permute(0, 2, 1, 3, 4)
             if i>0:
-                repetition_factor = (N_g//y.shape[2])
-                y = y.repeat(1, 1, repetition_factor, 1, 1)
-                # print('attention out repeat: ',y.shape)
+                y = self.upsample(y, i)
             self.attn_outcome_per_group.append(y)
 
         # # #concatenating multi-group attention
