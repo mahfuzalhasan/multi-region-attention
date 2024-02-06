@@ -53,9 +53,6 @@ class MRATransformer(nn.Module):
         cur = 0
         # print(f'dpr: {dpr}')
 
-        self.pos_block = nn.ModuleList(
-            [PosCNN(embed_dim, embed_dim) for embed_dim in embed_dims]
-        )
         # 56x56
         
         self.block1 = nn.ModuleList([Block(
