@@ -52,10 +52,6 @@ class MRATransformer(nn.Module):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         cur = 0
         # print(f'dpr: {dpr}')
-
-        self.pos_block = nn.ModuleList(
-            [PosCNN(embed_dim, embed_dim) for embed_dim in embed_dims]
-        )
         # 56x56
         
         self.block1 = nn.ModuleList([Block(
@@ -152,8 +148,6 @@ class MRATransformer(nn.Module):
         # print('Stage 1 - Output: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block1):
             x_rgb = blk(x_rgb, H, W)
-            if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm1(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 1 - Output: {}'.format(x_rgb.shape))
@@ -165,8 +159,6 @@ class MRATransformer(nn.Module):
         self.logger.info('Stage 2 - Tokenization: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block2):
             x_rgb = blk(x_rgb, H, W)
-            if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm2(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 2 - Output: {}'.format(x_rgb.shape))
@@ -178,8 +170,6 @@ class MRATransformer(nn.Module):
         self.logger.info('Stage 3 - Tokenization: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block3):
             x_rgb = blk(x_rgb, H, W)
-            if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm3(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 3 - Output: {}'.format(x_rgb.shape))
@@ -192,8 +182,6 @@ class MRATransformer(nn.Module):
         # print('Stage 4 - Tokenization: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block4):
             x_rgb = blk(x_rgb, H, W)
-            if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm4(x_rgb)   # B, L, C
         # x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 4 - Output: {}'.format(x_rgb.shape))

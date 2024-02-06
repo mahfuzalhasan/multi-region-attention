@@ -33,6 +33,19 @@ class MultiScaleAttention(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
+
+        # get pair-wise relative position index for each token inside the window
+        coords_h = torch.arange(self.window_size)
+        coords_w = torch.arange(self.window_size)
+        coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
+        coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
+        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
+        relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
+        relative_coords[:, :, 0] += self.window_size - 1  # shift to start from 0
+        relative_coords[:, :, 1] += self.window_size - 1
+        relative_coords[:, :, 0] *= 2 * self.window_size - 1
+        relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
+        self.register_buffer("relative_position_index", relative_position_index)
         
 
         downsample_layers = []
@@ -87,12 +100,18 @@ class MultiScaleAttention(nn.Module):
 
 
     def attention(self, q, k, v):
-        attn = (q @ k.transpose(-2, -1)) * self.scale   # scaling needs to be fixed
+        q = q * self.scale
+        attn = (q @ k.transpose(-2, -1))  # scaling needs to be fixed
+        relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
+            self.window_size * self.window_size, self.window_size * self.window_size, -1)  # Wh*Ww,Wh*Ww,nH
+        relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
+        attn = attn + relative_position_bias.unsqueeze(0)
         attn = attn.softmax(dim=-1)      #  couldn't figure out yet
         attn = self.attn_drop(attn)
         x = (attn @ v)
         # print(f'attn:{attn.shape} v:{v.shape}')
         return x, attn
+    
     def upsample(self, x, i):
         B, h, r, N, l_C = x.shape
         perm_x = x.reshape(B, h*l_C, r, 7, 7).permute(0, 1, 3, 4, 2).contiguous().reshape(B, h*l_C, 7, 7*r)
