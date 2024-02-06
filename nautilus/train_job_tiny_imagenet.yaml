@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: job-imagenet
+  name: job-tiny-imagenet
 spec:
   template:
     spec:
@@ -15,7 +15,7 @@ spec:
                 values:
                 - NVIDIA-RTX-A6000
       containers:
-      - name: cls-container
+      - name: tiny-cls-container
         image: ubuntu
         command:
           - sh
@@ -35,7 +35,7 @@ spec:
             apt-get install -y git && \
             echo '===========installation successful==========' && \
             mkdir -p /opt/repo/multi-region-attention && \
-            git clone --single-branch --branch msha-cswin-like https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
+            git clone --single-branch --branch se-global https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
             apt update && \
             echo 'git pulled successfully.' && \
             cd /opt/repo/multi-region-attention && \
