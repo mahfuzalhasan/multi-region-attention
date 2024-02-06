@@ -122,8 +122,6 @@ class MultiScaleAttention(nn.Module):
         return x, attn
     
 
-
-
     def forward(self, x, H, W):
         #####print('!!!!!!!!!!!!attention head: ',self.num_heads, ' !!!!!!!!!!')
         # N = H*W
@@ -137,7 +135,6 @@ class MultiScaleAttention(nn.Module):
         x_windows = self.window_partition(x)
         x_windows = x_windows.view(-1, self.window_size * self.window_size, C)
         B_, Nr, C = x_windows.shape     # B_ = B * num_local_regions
-        # print('x_windows: ',x_windows.shape)
 
         qkv = self.qkv_proj(x).reshape(B_, Nr, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
