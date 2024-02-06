@@ -13,7 +13,7 @@ sys.path.append(parent_dir)
 model_dir = os.path.abspath(os.path.join(parent_dir, os.pardir))
 sys.path.append(model_dir)
 
-from multi_scale_head import MultiScaleAttention
+from se_head_attn import MultiScaleAttention
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 from configs.config_imagenet import config
 
@@ -23,6 +23,9 @@ import time
 from utils.logger import get_logger
 
 logger = get_logger()
+
+
+
 
 class DWConv(nn.Module):
     """
@@ -114,17 +117,14 @@ class Block(nn.Module):
     Transformer Block: Self-Attention -> Mix FFN -> OverLap Patch Merging
     """
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, n_local_region_scales=3, img_size=(1024, 1024)):
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, reduction=4, img_size=(1024, 1024)):
         super().__init__()
         self.norm1 = norm_layer(dim)
-        self.n_local_region_scales = n_local_region_scales
+        self.reduction = reduction
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.attn = MultiScaleAttention(
-            dim,
-            num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
-            attn_drop=attn_drop, proj_drop=drop, 
-            n_local_region_scales=self.n_local_region_scales, img_size=img_size)
-
+            dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
+            attn_drop=attn_drop, proj_drop=drop, reduction=self.reduction, img_size=img_size)
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)

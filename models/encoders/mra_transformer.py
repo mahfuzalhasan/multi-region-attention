@@ -30,7 +30,7 @@ from utils.logger import get_logger
 class MRATransformer(nn.Module):
     def __init__(self, img_size=(1024, 1024), patch_size=4, in_chans=3, num_classes=1000, embed_dims=[96, 192, 384, 768], 
                  num_heads=[3, 6, 12, 24], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
-                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, local_region_scales=[3, 3, 2, 1], 
+                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, reductions=[4, 4, 2, 0], 
                  depths=[2, 2, 6, 2]):
         super().__init__()
         self.num_classes = num_classes
@@ -61,7 +61,7 @@ class MRATransformer(nn.Module):
         self.block1 = nn.ModuleList([Block(
             dim=embed_dims[0], num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            n_local_region_scales=local_region_scales[0], img_size=(img_size[0]// 4,img_size[1]//4))
+            reduction=reductions[0], img_size=(img_size[0]// 4,img_size[1]//4))
             for i in range(depths[0])])
         self.norm1 = norm_layer(embed_dims[0])
         cur += depths[0]
@@ -70,7 +70,7 @@ class MRATransformer(nn.Module):
         self.block2 = nn.ModuleList([Block(
             dim=embed_dims[1], num_heads=num_heads[1], mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            n_local_region_scales=local_region_scales[1], img_size=(img_size[0]//8, img_size[1]//8))
+            reduction=reductions[1], img_size=(img_size[0]//8, img_size[1]//8))
             for i in range(depths[1])])
         self.norm2 = norm_layer(embed_dims[1])
         cur += depths[1]
@@ -79,7 +79,7 @@ class MRATransformer(nn.Module):
         self.block3 = nn.ModuleList([Block(
             dim=embed_dims[2], num_heads=num_heads[2], mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            n_local_region_scales=local_region_scales[2], img_size=(img_size[0]// 16,img_size[1]//16))
+            reduction=reductions[2], img_size=(img_size[0]// 16,img_size[1]//16))
             for i in range(depths[2])])
         self.norm3 = norm_layer(embed_dims[2])
         cur += depths[2]
@@ -88,7 +88,7 @@ class MRATransformer(nn.Module):
         self.block4 = nn.ModuleList([Block(
             dim=embed_dims[3], num_heads=num_heads[3], mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            n_local_region_scales=local_region_scales[3], img_size=(img_size[0]// 32,img_size[1]//32))
+            reduction=reductions[3], img_size=(img_size[0]// 32,img_size[1]//32))
             for i in range(depths[3])])             
         self.norm4 = norm_layer(embed_dims[3])
 
@@ -152,8 +152,6 @@ class MRATransformer(nn.Module):
         # print('Stage 1 - Output: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block1):
             x_rgb = blk(x_rgb, H, W)
-            if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm1(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 1 - Output: {}'.format(x_rgb.shape))
@@ -165,8 +163,6 @@ class MRATransformer(nn.Module):
         self.logger.info('Stage 2 - Tokenization: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block2):
             x_rgb = blk(x_rgb, H, W)
-            if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm2(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 2 - Output: {}'.format(x_rgb.shape))
@@ -178,8 +174,6 @@ class MRATransformer(nn.Module):
         self.logger.info('Stage 3 - Tokenization: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block3):
             x_rgb = blk(x_rgb, H, W)
-            if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm3(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 3 - Output: {}'.format(x_rgb.shape))
@@ -192,8 +186,6 @@ class MRATransformer(nn.Module):
         # print('Stage 4 - Tokenization: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block4):
             x_rgb = blk(x_rgb, H, W)
-            if j==0:
-                x_rgb = self.pos_block[stage](x_rgb, H, W)
         x_rgb = self.norm4(x_rgb)   # B, L, C
         # x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 4 - Output: {}'.format(x_rgb.shape))
@@ -238,9 +230,9 @@ class mit_b0(MRATransformer):
         img_size = (fuse_cfg.IMAGE.image_height, fuse_cfg.IMAGE.image_width)
         heads = fuse_cfg.MODEL.heads    #3,6,12,24
         super(mit_b0, self).__init__(
-            img_size = img_size, patch_size = 4, num_classes=fuse_cfg.DATASET.NUM_CLASSES, embed_dims=[128, 192, 384, 768], 
+            img_size = img_size, patch_size = 4, num_classes=fuse_cfg.DATASET.NUM_CLASSES, embed_dims=[96, 192, 384, 768], 
             num_heads=heads, mlp_ratios=[4, 4, 4, 4], qkv_bias=True, 
-            norm_layer=partial(nn.LayerNorm, eps=1e-6), local_region_scales = [4, 3, 2, 1], depths=[2, 2, 6, 2], 
+            norm_layer=partial(nn.LayerNorm, eps=1e-6), reductions=[4, 4, 2, 0], depths=[2, 2, 6, 2], 
             drop_rate=fuse_cfg.MODEL.DROP_RATE, drop_path_rate=fuse_cfg.MODEL.DROP_PATH_RATE)
 
 
