@@ -102,7 +102,7 @@ class MultiScaleAttention(nn.Module):
         
         for i in range(self.n_local_region_scales):
             # print(f'$$$ group:{i} $$$$$$')
-            local_C = C//self.n_local_region_scales
+            local_C = C//self.n_local_region_scales     # channel per head-group, local_C = head_dim * heads_per_group(n_local_heads)
             qkv = temp[:, :, :, i*local_C:i*local_C + local_C]
             # 3*B, 56, 56, l_C
             qkv = qkv.reshape(-1, self.H, self.W, local_C).permute(0, 3, 1, 2).contiguous()
@@ -115,9 +115,9 @@ class MultiScaleAttention(nn.Module):
             ############################################
                 
             # 3*B, l_C, lH, lW
-            B_, _, l_H, l_W = qkv.shape
+            B_, _, l_H, l_W = qkv.shape     # B_ = 3*B
 
-            # print('qkv normal: ',qkv.shape)
+            # Local attention on original patch resolution for a head-group
             if i==self.n_local_region_scales-1:
                 qkv = qkv.view(B_, H // self.window_size, self.window_size, W // self.window_size, self.window_size, local_C)
                 # B_, #num_l_reg_7x7, 49, l_C
@@ -129,7 +129,8 @@ class MultiScaleAttention(nn.Module):
                 y, attn = self.attention(q, k, v)
                 # print(f'y local: {y.shape}')
                 y = y.permute(0, 1, 4, 2, 3).contiguous().reshape(B, local_C, N).view(B, local_C, self.H, self.W)
-            else:
+
+            else:  # global attention on reduced patch resolution for other head-groups
                 # B_, local_heads, lH*lW, head_dim
                 qkv = qkv.reshape(3, B, self.n_local_heads, self.head_dim, l_H*l_W).permute(0, 1, 2, 4, 3)
                 # B, local_heads, lH*lW, head_dim
