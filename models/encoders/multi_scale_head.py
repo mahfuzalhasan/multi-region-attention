@@ -16,16 +16,20 @@ class MultiScaleAttention(nn.Module):
 
         self.dim = dim
         self.num_heads = num_heads
-        head_dim = dim // num_heads
-        self.scale = qk_scale or head_dim ** -0.5
+        self.head_dim = dim // num_heads
+        self.scale = qk_scale or self.head_dim ** -0.5
         self.window_size = window_size
         self.n_local_region_scales = n_local_region_scales
         self.img_size = img_size
 
+        self.n_local_heads = self.num_heads//self.n_local_region_scales     # heads per group
+        self.H, self.W = img_size[0], img_size[1]
+
+        self.N_G = self.H//self.window_size * self.W//self.window_size
+
         # assert self.num_heads%n_local_region_scales == 0
         # Linear embedding
-        self.q = nn.Linear(dim, dim, bias=qkv_bias)
-        self.kv = nn.Linear(dim, dim * 2, bias=qkv_bias)
+        self.qkv_proj = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
@@ -60,14 +64,24 @@ class MultiScaleAttention(nn.Module):
         patches = patches.permute(0, 1, 3, 2, 4, 5).contiguous().reshape(-1, self.window_size**2, Ch)
         return patches
 
-
     def attention(self, q, k, v):
         attn = (q @ k.transpose(-2, -1)) * self.scale   # scaling needs to be fixed
-        attn = attn.softmax(dim=-1)      #  couldn't figure out yet
+        attn = attn.softmax(dim=-1)                     
         attn = self.attn_drop(attn)
         x = (attn @ v)
-        # print(f'attn:{attn.shape} v:{v.shape}')
         return x, attn
+    
+    # need to inspect for learnable upsampling and concatenation
+    def merge_attn_output(self, outputs):
+        final = outputs[0]
+        for i in range(1, len(outputs)):
+            current = outputs[i]
+            # print(f'current: {current.shape}')
+            final = F.interpolate(final, size=current.size()[2:], mode='nearest')
+            final = torch.cat([final, current], dim=1)
+            # print(f'final: {final.shape}')
+        return final
+
 
     def forward(self, x, H, W):
         #####print('!!!!!!!!!!!!attention head: ',self.num_heads, ' !!!!!!!!!!')
@@ -80,61 +94,53 @@ class MultiScaleAttention(nn.Module):
 
         group_size = int(math.ceil(self.num_heads/self.n_local_region_scales))
         
-        # q,k,v --> B,h,N,Ch
-        q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
-        kv = self.kv(x).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        k, v = kv[0], kv[1]
-        # print(f'q:{q.shape} k:{k.shape} v:{v.shape}')
-        N_g = self.H//self.window_size * self.W//self.window_size
+        # temp --> 3,B,N,C
+        temp = self.qkv_proj(x).reshape(B, N, 3, C).permute(2, 0, 1, 3).contiguous()
         self.attn_outcome_per_group = []
         self.attn_mat_per_head = []
+
         
         for i in range(self.n_local_region_scales):
-            n_local_head = self.num_heads - i*group_size if i==self.n_local_region_scales-1 else group_size
+            # print(f'$$$ group:{i} $$$$$$')
+            local_C = C//self.n_local_region_scales
+            qkv = temp[:, :, :, i*local_C:i*local_C + local_C]
+            # 3*B, 56, 56, l_C
+            qkv = qkv.reshape(-1, self.H, self.W, local_C).permute(0, 3, 1, 2).contiguous()
             
-            q_g = q[:, i*group_size:i*group_size+n_local_head, :, :]
-            k_g = k[:, i*group_size:i*group_size+n_local_head, :, :]
-            v_g = v[:, i*group_size:i*group_size+n_local_head, :, :]
-            # print(f'group:{i}')
-            q_g = q_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2)
-            k_g = k_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2)
-            v_g = v_g.reshape(-1, self.H, self.W, C//self.num_heads).permute(0, 3, 1, 2)
-            
-            ## pooling per group using adaptive avg pool
-            output_size = (self.H//pow(2,i), self.W//pow(2,i))
-            if i>0:
-                q_g = F.adaptive_avg_pool2d(q_g, output_size)
-                k_g = F.adaptive_avg_pool2d(k_g, output_size)
-                v_g = F.adaptive_avg_pool2d(v_g, output_size)
+            ## pooling per group using adaptive avg pool. Need to inspect learnable downsampling
+            pi = self.n_local_region_scales-i-1
+            output_size = (self.H//int(pow(2,pi)), self.W//int(pow(2, pi)))
+            if i<self.n_local_region_scales-1:
+                qkv = F.adaptive_avg_pool2d(qkv, output_size)
             ############################################
-            n_region = (output_size[0]//self.window_size) * (output_size[1]//self.window_size)
+                
+            # 3*B, l_C, lH, lW
+            B_, _, l_H, l_W = qkv.shape
 
-            q_g = q_g.permute(0, 2, 3, 1)
-            k_g = k_g.permute(0, 2, 3, 1)
-            v_g = v_g.permute(0, 2, 3, 1)
-
-            # print('q,k,v normal: ',q_g.shape, k_g.shape, v_g.shape)
-            q_g = self.patchify(q_g)
-            k_g = self.patchify(k_g)
-            v_g = self.patchify(v_g)
-            # print('q,k,v patchified: ',q_g.shape, k_g.shape, v_g.shape)
-            y, attn = self.attention(q_g, k_g, v_g)
-
-             
-            y = y.reshape(B, n_local_head, n_region, -1, C//self.num_heads)
-            # print('attention out: ',y.shape)
-            
-            if i>0:
-                repetition_factor = (N_g//y.shape[2])
-                y = y.repeat(1, 1, repetition_factor, 1, 1)
-                # print('attention out repeat: ',y.shape)
+            # print('qkv normal: ',qkv.shape)
+            if i==self.n_local_region_scales-1:
+                qkv = qkv.view(B_, H // self.window_size, self.window_size, W // self.window_size, self.window_size, local_C)
+                # B_, #num_l_reg_7x7, 49, l_C
+                qkv = qkv.permute(0, 1, 3, 2, 4, 5).contiguous().view(B_, self.N_G, -1, local_C)
+                # 3, B, local_heads, #num_l_reg_7x7, 49, head_dim
+                qkv = qkv.reshape(3, B, self.N_G, -1, self.n_local_heads, self.head_dim).permute(0, 1, 4, 2, 3, 5).contiguous()
+                # B, local_heads, #num_l_reg_7x7, 49, head_dim
+                q, k, v = qkv[0], qkv[1], qkv[2]
+                y, attn = self.attention(q, k, v)
+                # print(f'y local: {y.shape}')
+                y = y.permute(0, 1, 4, 2, 3).contiguous().reshape(B, local_C, N).view(B, local_C, self.H, self.W)
+            else:
+                # B_, local_heads, lH*lW, head_dim
+                qkv = qkv.reshape(3, B, self.n_local_heads, self.head_dim, l_H*l_W).permute(0, 1, 2, 4, 3)
+                # B, local_heads, lH*lW, head_dim
+                q, k ,v = qkv[0], qkv[1], qkv[2]
+                y, attn = self.attention(q, k, v)
+                y = y.reshape(B, self.n_local_heads, l_H, l_W, self.head_dim).permute(0, 1, 4, 2, 3).contiguous().reshape(B, local_C, l_H, l_W)
+            # print(f'y:{y.shape}')
             self.attn_outcome_per_group.append(y)
 
-        # # #concatenating multi-group attention
-        attn_fused = torch.cat(self.attn_outcome_per_group, axis=1)
-        # print('concatL ',attn_fused.shape)
-        attn_fused = attn_fused.reshape(B, self.num_heads, -1, C//self.num_heads)
-        attn_fused = attn_fused.permute(0, 2, 1, 3).contiguous().reshape(B, N, C)
+        attn_fused = self.merge_attn_output(self.attn_outcome_per_group)
+        attn_fused = attn_fused.reshape(B, C, N).permute(0, 2, 1).contiguous()
         attn_fused = self.proj(attn_fused)
         attn_fused = self.proj_drop(attn_fused )
         return attn_fused
@@ -173,7 +179,7 @@ if __name__=="__main__":
     H = 7
     W = 7
     # device = 'cuda:1'
-    ms_attention = MultiScaleAttention(C, num_heads=24, n_local_region_scales=1, window_size=7)
+    ms_attention = MultiScaleAttention(C, num_heads=24, n_local_region_scales=1, window_size=7, img_size=(7, 7))
     # ms_attention = ms_attention.to(device)
     # # ms_attention = nn.DataParallel(ms_attention, device_ids = [0,1])
     # # ms_attention.to(f'cuda:{ms_attention.device_ids[0]}', non_blocking=True)

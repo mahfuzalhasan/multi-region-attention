@@ -43,13 +43,12 @@ class EncoderDecoder(nn.Module):
 
         self.aux_head = None
 
-        if cfg.MODEL.decoder == 'ClassificationHead':
-            self.logger.info('Using Classification Head')
-            from decoders.classifier import Classifier
-            self.decode_head = Classifier(in_channels=self.channels, 
-                                        num_classes=cfg.DATASET.NUM_CLASSES)
-        else:
-            self.logger.error('Decoder not found!!! Currently only support MLPDecoder')
+        # if cfg.MODEL.decoder == 'ClassificationHead':
+        #     self.logger.info('Using Classification Head')
+        #     from decoders.classifier import Classifier
+        #     self.decode_head = Classifier(in_channels=self.channels, num_classes=cfg.DATASET.NUM_CLASSES)
+        # else:
+        #     self.logger.error('Decoder not found!!! Currently only support MLPDecoder')
         
 
         self.criterion = criterion
@@ -58,9 +57,8 @@ class EncoderDecoder(nn.Module):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
         orisize = rgb.shape
-        x = self.backbone(rgb)
-        out = self.decode_head.forward(x)
-        return out
+        x, cls_output = self.backbone(rgb)
+        return cls_output
 
     def forward(self, rgb, label=None):
         if self.aux_head:
