@@ -329,6 +329,14 @@ if __name__ == '__main__':
     model = torch.nn.DataParallel(model, device_ids=config.SYSTEM.device_ids)
 
     # TODO: Load checkpoint
+    saved_checkpoint_path = ''
+    state_dict = torch.load(saved_checkpoint_path)
+    model.module.load_state_dict(state_dict['model'])
+    # optimizer.load_state_dict(state_dict['optimizer'])
+    # lr_scheduler.load_state_dict(state_dict['lr_scheduler'])
+    # starting_epoch = state_dict['epoch']
+    # max_accuracy = state_dict['max_accuracy']
+    run_id = state_dict['run_id']
 
     # TODO: build dataloader
     dataset_val, data_loader_val = build_loader(config)
