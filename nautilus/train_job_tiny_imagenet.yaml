@@ -49,12 +49,12 @@ spec:
         resources:
           limits:
             ephemeral-storage: "500Gi"
-            memory: 100Gi
+            memory: 90Gi
             cpu: "10"
             nvidia.com/gpu: "6"
           requests:
             ephemeral-storage: "500Gi"
-            memory: 100Gi
+            memory: 90Gi
             cpu: "10"
             nvidia.com/gpu: "6"
         securityContext:
