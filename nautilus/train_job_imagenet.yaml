@@ -35,7 +35,7 @@ spec:
             apt-get install -y git && \
             echo '===========installation successful==========' && \
             mkdir -p /opt/repo/multi-region-attention && \
-            git clone --single-branch --branch se-global https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
+            git clone --single-branch --branch mix-local-global https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
             apt update && \
             echo 'git pulled successfully.' && \
             cd /opt/repo/multi-region-attention && \

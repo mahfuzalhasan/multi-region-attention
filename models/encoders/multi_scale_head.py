@@ -74,12 +74,16 @@ class MultiScaleAttention(nn.Module):
     # need to inspect for learnable upsampling and concatenation
     def merge_attn_output(self, outputs):
         final = outputs[0]
+        
         for i in range(1, len(outputs)):
+            B, lH, Ch, H, W = final.shape
+            # print(f'final initial: {final.shape}')
             current = outputs[i]
+            _, _, _, new_H,new_W = current.shape
             # print(f'current: {current.shape}')
-            final = F.interpolate(final, size=current.size()[2:], mode='nearest')
+            final = F.interpolate(final.reshape(-1, Ch, H, W), size=current.size()[3:], mode='nearest').view(B, lH, Ch, new_H, new_W)
             final = torch.cat([final, current], dim=1)
-            # print(f'final: {final.shape}')
+            
         return final
 
 
@@ -91,17 +95,11 @@ class MultiScaleAttention(nn.Module):
         A = []
         B, N, C = x.shape
         assert N==self.H*self.W
-
-        group_size = int(math.ceil(self.num_heads/self.n_local_region_scales))
         
-        # temp --> 3,B,N,C
-        temp = self.qkv_proj(x).reshape(B, N, 3, C).permute(2, 0, 1, 3).contiguous()
+        temp = self.qkv_proj(x).reshape(B, N, 3, C).permute(2, 0, 1, 3).contiguous()    # temp --> 3,B,N,C
+        
         self.attn_outcome_per_group = []
-        self.attn_mat_per_head = []
-
-        
         for i in range(self.n_local_region_scales):
-            # print(f'$$$ group:{i} $$$$$$')
             local_C = C//self.n_local_region_scales     # channel per head-group, local_C = head_dim * heads_per_group(n_local_heads)
             qkv = temp[:, :, :, i*local_C:i*local_C + local_C]
             # 3*B, 56, 56, l_C
@@ -117,30 +115,29 @@ class MultiScaleAttention(nn.Module):
             # 3*B, l_C, lH, lW
             B_, _, l_H, l_W = qkv.shape     # B_ = 3*B
 
-            # Local attention on original patch resolution for a head-group
+            # Local attention on original patch resolution for last head-group
             if i==self.n_local_region_scales-1:
                 qkv = qkv.view(B_, H // self.window_size, self.window_size, W // self.window_size, self.window_size, local_C)
-                # B_, #num_l_reg_7x7, 49, l_C
-                qkv = qkv.permute(0, 1, 3, 2, 4, 5).contiguous().view(B_, self.N_G, -1, local_C)
+                qkv = qkv.permute(0, 1, 3, 2, 4, 5).contiguous().view(B_, self.N_G, -1, local_C) # B_, #num_l_reg_7x7, 49, l_C
                 # 3, B, local_heads, #num_l_reg_7x7, 49, head_dim
                 qkv = qkv.reshape(3, B, self.N_G, -1, self.n_local_heads, self.head_dim).permute(0, 1, 4, 2, 3, 5).contiguous()
-                # B, local_heads, #num_l_reg_7x7, 49, head_dim
-                q, k, v = qkv[0], qkv[1], qkv[2]
+                q, k, v = qkv[0], qkv[1], qkv[2]    # B, local_heads, #num_l_reg_7x7, 49, head_dim
                 y, attn = self.attention(q, k, v)
-                # print(f'y local: {y.shape}')
-                y = y.permute(0, 1, 4, 2, 3).contiguous().reshape(B, local_C, N).view(B, local_C, self.H, self.W)
-
-            else:  # global attention on reduced patch resolution for other head-groups
+                # B, local_heads, head_dim, 56, 56
+                y = y.permute(0, 1, 4, 2, 3).contiguous().reshape(B, self.n_local_heads, self.head_dim, N).view(B, self.n_local_heads, self.head_dim, self.H, self.W)
+            
+            # global attention on reduced patch resolution for other head-groups
+            else:  
                 # B_, local_heads, lH*lW, head_dim
                 qkv = qkv.reshape(3, B, self.n_local_heads, self.head_dim, l_H*l_W).permute(0, 1, 2, 4, 3)
-                # B, local_heads, lH*lW, head_dim
-                q, k ,v = qkv[0], qkv[1], qkv[2]
+                q, k ,v = qkv[0], qkv[1], qkv[2]    # B, local_heads, lH*lW, head_dim
                 y, attn = self.attention(q, k, v)
-                y = y.reshape(B, self.n_local_heads, l_H, l_W, self.head_dim).permute(0, 1, 4, 2, 3).contiguous().reshape(B, local_C, l_H, l_W)
-            # print(f'y:{y.shape}')
+                # B, local_heads, head_dim, l_H, l_W
+                y = y.reshape(B, self.n_local_heads, l_H, l_W, self.head_dim).permute(0, 1, 4, 2, 3).contiguous()
             self.attn_outcome_per_group.append(y)
 
-        attn_fused = self.merge_attn_output(self.attn_outcome_per_group)
+        
+        attn_fused = self.merge_attn_output(self.attn_outcome_per_group)    # B, num_heads, head_dim, H, W
         attn_fused = attn_fused.reshape(B, C, N).permute(0, 2, 1).contiguous()
         attn_fused = self.proj(attn_fused)
         attn_fused = self.proj_drop(attn_fused )
