@@ -1,7 +1,5 @@
-import scipy
 import time
 import numpy as np
-import datetime
 
 import torch
 import torch.nn as nn
@@ -12,13 +10,11 @@ import torch.backends.cudnn as cudnn
 
 import argparse
 
-from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.utils import accuracy, AverageMeter
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import create_transform
-from torch.utils.data.sampler import SubsetRandomSampler
 from functools import partial
-from utils.utils import load_checkpoint, save_checkpoint, get_grad_norm, auto_resume_helper, reduce_tensor
+from utils.utils import reduce_tensor
 
 from configs.config_imagenet import config
 from models.builder import EncoderDecoder as segmodel
