@@ -221,7 +221,7 @@ def val_imagenet(epoch, data_loader, model, config):
                     f'#From AverageMeter:: Test: [{idx}/{len(data_loader)}]\t'
                     f'Loss avg  ({loss_meter.avg:.4f})\t'
                     f'Acc@1 avg ({acc1_meter.avg:.3f})\t'
-                    f'Acc@5 avg ({acc5_meter.avg:.3f})\t'
+                    f'Acc@5 avg ({acc5_meter.avg:.3f})\t')
         total += 1
     ###### validation done ########  
         
