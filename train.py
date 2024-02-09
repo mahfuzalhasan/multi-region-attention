@@ -132,11 +132,15 @@ def Main(args):
         model.module.load_state_dict(state_dict['model'])
         optimizer.load_state_dict(state_dict['optimizer'])
         lr_scheduler.load_state_dict(state_dict['lr_scheduler'])
-        starting_epoch = state_dict['epoch']
+        starting_epoch = state_dict['epoch'] + 1 # start from next epoch
         max_accuracy = state_dict['max_accuracy']
         old_run_id = state_dict['run_id']
-        print('resuming training with model: ', config.TRAIN.RESUME_MODEL_PATH)
-        print('resuming experiment from: ', old_run_id)
+        new_s_lr = optimizer.param_groups[0]['lr']
+        if dist.get_rank()==0:
+            print('resuming training with model: ', config.TRAIN.RESUME_MODEL_PATH)
+            print('old_run_id: ', old_run_id)
+            print(f'new starting lr: {new_s_lr}')
+            print('########### Model Loaded from checkpoint #############')
 
     n_params = count_parameters(model)
     if dist.get_rank()==0:
