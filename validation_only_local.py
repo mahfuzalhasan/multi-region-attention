@@ -24,7 +24,7 @@ from dataloader.imagenet.HFDataset import HFDataset
 
 
     
-def val_imagenet(epoch, data_loader, model, config):
+def val_imagenet(data_loader, model, config):
     criterion = torch.nn.CrossEntropyLoss()
     model.eval()
 
