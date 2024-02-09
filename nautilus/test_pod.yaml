@@ -11,7 +11,7 @@ spec:
           - key: nvidia.com/gpu.product
             operator: In
             values:
-            - NVIDIA-GeForce-GTX-1080-Ti
+            - NVIDIA-GeForce-RTX-3090
   containers:
   - name: t-pod
     image: ubuntu
@@ -22,11 +22,11 @@ spec:
       limits:
         memory: 32Gi
         cpu: "4"
-        nvidia.com/gpu: "2"
+        nvidia.com/gpu: "1"
       requests:
         memory: 32Gi
         cpu: "4"
-        nvidia.com/gpu: "2"
+        nvidia.com/gpu: "1"
     command: 
       - "sh"
       - "-c"
@@ -53,4 +53,4 @@ spec:
   volumes:
     - name: project
       persistentVolumeClaim:
-        claimName: project-pvc
+        claimName: mahfuz-pvc

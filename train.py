@@ -72,18 +72,9 @@ def Main(args):
 
     torch.cuda.synchronize()
     run_id = datetime.datetime.today().strftime('%m-%d-%y_%H%M')
-    print(f'$$$$$$$$$$$$$ run_id:{run_id} $$$$$$$$$$$$$')
+    print(f'$$$$$$$$$$$$$ new_run_id:{run_id} $$$$$$$$$$$$$')
 
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
-
-    if dist.get_rank()==0:
-        print(f"\n #training:{len(dataset_train)} #val:{len(dataset_val)}")
-        print(f"\n iteration in one epoch: len_dl::: train:{len(data_loader_train)} val:{len(data_loader_val)}")
-        print(f"\n batch size:{config.DATASET.BATCH_SIZE} \n")
-    
-        save_log = os.path.join(config.WRITE.LOG_DIR, str(run_id))
-        os.makedirs(save_log, exist_ok=True)
-        writer = SummaryWriter(save_log)
 
     # config network and criterion
     if config.AUG.MIXUP > 0.:
@@ -132,11 +123,20 @@ def Main(args):
         model.module.load_state_dict(state_dict['model'])
         optimizer.load_state_dict(state_dict['optimizer'])
         lr_scheduler.load_state_dict(state_dict['lr_scheduler'])
-        starting_epoch = state_dict['epoch']
+        starting_epoch = state_dict['epoch'] + 1        # Start from next epoch
         max_accuracy = state_dict['max_accuracy']
-        old_run_id = state_dict['run_id']
+        run_id = state_dict['run_id']
         print('resuming training with model: ', config.TRAIN.RESUME_MODEL_PATH)
-        print('resuming experiment from: ', old_run_id)
+        print('old_run_id: ', run_id)
+
+    if dist.get_rank()==0:
+        print(f"\n #training:{len(dataset_train)} #val:{len(dataset_val)}")
+        print(f"\n iteration in one epoch: len_dl::: train:{len(data_loader_train)} val:{len(data_loader_val)}")
+        print(f"\n batch size:{config.DATASET.BATCH_SIZE} \n")
+    
+        save_log = os.path.join(config.WRITE.LOG_DIR, str(run_id))
+        os.makedirs(save_log, exist_ok=True)
+        writer = SummaryWriter(save_log)
 
     n_params = count_parameters(model)
     if dist.get_rank()==0:

@@ -202,9 +202,9 @@ def val_imagenet(epoch, data_loader, model, config):
             dist.all_reduce(batch_total_tensor, op=dist.ReduceOp.SUM)
             dist.all_reduce(csum_batch_top1_tensor, op=dist.ReduceOp.SUM)
             dist.all_reduce(csum_batch_top5_tensor, op=dist.ReduceOp.SUM)
-            ## All of these should have been divided by dist.get_world_size()
+            ## All of these should have been divided by dist.get_world_size() which is #num_gpu
             ## but during accuracy calcuation we are taking ratio.
-            ## So, the effect of not dividing by 4 gets nullified eventually 
+            ## So, the effect of not dividing by #num_gpu gets nullified eventually 
 
 
             ravg_batch_top1_accuracy = csum_batch_top1_tensor.item() / batch_total_tensor.item()
@@ -232,9 +232,9 @@ def val_imagenet(epoch, data_loader, model, config):
     dist.all_reduce(batch_total_tensor, op=dist.ReduceOp.SUM)
     dist.all_reduce(csum_batch_top1_tensor, op=dist.ReduceOp.SUM)
     dist.all_reduce(csum_batch_top5_tensor, op=dist.ReduceOp.SUM)
-    ## All of these should have been divided by dist.get_world_size()
+    ## All of these should have been divided by dist.get_world_size() which is #num_gpu
     ## but during accuracy calcuation we are taking ratio.
-    ## So, the effect of not dividing by 4 gets nullified eventually 
+    ## So, the effect of not dividing by #num_gpu gets nullified eventually 
     ##########################################################
 
 
