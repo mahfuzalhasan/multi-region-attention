@@ -1,11 +1,16 @@
 import scipy
 import time
+import numpy as np
+import datetime
 
 import torch
 import torch.nn as nn
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 import torch.distributed as dist
+import torch.backends.cudnn as cudnn
+
+import argparse
 
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.utils import accuracy, AverageMeter
@@ -19,7 +24,7 @@ from configs.config_imagenet import config
 from models.builder import EncoderDecoder as segmodel
 from datasets import load_dataset ## for HF dataset
 
-from HFDataset import HFDataset
+from dataloader.imagenet.HFDataset import HFDataset
 
 
     
@@ -223,41 +228,61 @@ def build_model(config):
     model = segmodel(cfg=config, criterion=criterion, norm_layer=partial(nn.LayerNorm, eps=1e-6))
     return model
 
-if __name__ == '__main__':
-    # data_dir = '../data/imagenet/validation/'
+if __name__=='__main__':
+    parser = argparse.ArgumentParser(description='PyTorch Segformer Training')
+    parser.add_argument('config', help='dataset specific train config file path, more details can be found in configs/')
 
-    # dataset = datasets.ImageFolder(data_dir)
-    # dataloader = DataLoader(dataset, batch_size=64, shuffle=False, num_workers=4)
-    # print(f'dataset: {dataset}')
-    # print(f'dataloader length: {len(dataloader)}')
+    parser.add_argument('--devices', default=1, type=int, help='gpu devices')
+    parser.add_argument('--dataset', default='imagenet', type=str, help='dataset name')
+    parser.add_argument('--batchsize', default=128, type=int, help='batch size for single gpu')
+    args = parser.parse_args()
+
+
+    config_filename = args.config.split('/')[-1].split('.')[0] 
+    print('config_filename: ',config_filename)    
+    if config_filename == 'imagenet':
+        from configs.config_imagenet import config
+        print(f'config loaded')
+    else:
+        raise NotImplementedError
+
+    config.SYSTEM.DEVICE_IDS = [i for i in range(args.devices)]
+    config.DATASET.NAME = args.dataset
+    config.DATASET.BATCH_SIZE = args.batchsize
+
+    dist_backend = 'nccl'
+    torch.distributed.init_process_group(backend=dist_backend)
+    rank = dist.get_rank()
+    torch.cuda.set_device(rank)
+    torch.distributed.barrier()     ## this keeps checkpoints during training for all processes to catch up and sync
+    
+    seed = config.SEED + dist.get_rank()
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    cudnn.benchmark = True
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+
+    torch.cuda.synchronize()
+
 
     model = build_model(config)
-    # print(config)
     model.to(dist.get_rank())
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[dist.get_rank()])
-    # model = torch.nn.DataParallel(model, device_ids=config.SYSTEM.device_ids)
 
 
-    # TODO: Load checkpoint
-    saved_checkpoint_path = '/home/ma906813/project2023/multi-region-attention/results/model_best_02-02-24_2146.pth'
+    saved_checkpoint_path = '/project/results/saved_models/02-02-24_2146/model_best.pth'
     state_dict = torch.load(saved_checkpoint_path)
     model.module.load_state_dict(state_dict['model'])
-    # optimizer.load_state_dict(state_dict['optimizer'])
-    # lr_scheduler.load_state_dict(state_dict['lr_scheduler'])
-    # starting_epoch = state_dict['epoch']
-    # max_accuracy = state_dict['max_accuracy']
     run_id = state_dict['run_id']
     epoch = state_dict['epoch']
 
     
-
-    # TODO: build dataloader
     dataset_val, data_loader_val = build_loader(config)
     if dist.get_rank()==0:
         print(f'best model loaded from epoch:{epoch}')
         print(f'dataset_val length: {len(dataset_val)}')
         print(f'data_loader_val length: {len(data_loader_val)}')
 
-    # TODO: validation
     with torch.no_grad():
         acc1, acc5, v_loss = validation(data_loader_val, model, config)
