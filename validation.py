@@ -143,7 +143,7 @@ def val_ade(epoch, val_loader, model, config):
         return val_loss, result_dict['mean_iou']
 
 
-def val_imagenet(epoch, data_loader, model, config):
+def val_imagenet(data_loader, model, config):
     criterion = torch.nn.CrossEntropyLoss()
     model.eval()
 
