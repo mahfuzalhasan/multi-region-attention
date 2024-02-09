@@ -134,7 +134,7 @@ C.TRAIN.bn_eps = 1e-3
 C.TRAIN.bn_momentum = 0.1
 C.TRAIN.PRINT_FREQ = 300
 C.TRAIN.RESUME_TRAIN = True 
-C.TRAIN.RESUME_MODEL_PATH = osp.join(C.SYSTEM.root_dir, '/project/results/saved_models/02-07-24_0251/model_50.pth')
+C.TRAIN.RESUME_MODEL_PATH = '/project/results/saved_models/02-07-24_0251/model_50.pth'
 
 # LR scheduler
 C.TRAIN.LR_SCHEDULER = edict()
