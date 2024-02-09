@@ -16,6 +16,7 @@ from functools import partial
 
 from configs.config_imagenet import config
 from models.builder import EncoderDecoder as segmodel
+from datasets import load_dataset ## for HF dataset
 
 
 
@@ -114,15 +115,26 @@ def val_imagenet(data_loader, model, config):
     acc5_meter = AverageMeter()
 
     end = time.time()
+
+    top_1_total = 0
+    top_5_total = 0
+    total_loss = 0.0
+    total = 1
+
     for idx, (images, target) in enumerate(data_loader):
-        images = images.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
-        target = target.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
+        # images = images.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
+        # target = target.to(f'cuda:{model.device_ids[0]}', non_blocking=True)
+
+        images = images.to('cuda', non_blocking=True)
+        target = target.to('cuda', non_blocking=True)
 
         # compute output
         output = model(images)
         # measure accuracy and record loss
         loss = criterion(output, target)
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        
+        print(f'Batch: {idx}, acc1/iter: {acc1}, acc5/iter: {acc5}')
 
         # need for distributed learning
         # acc1 = reduce_tensor(acc1)
@@ -133,12 +145,27 @@ def val_imagenet(data_loader, model, config):
         acc1_meter.update(acc1.item(), target.size(0))
         acc5_meter.update(acc5.item(), target.size(0))
 
+        top_1_total += acc1.item()
+        top_5_total += acc5.item()
+        total_loss += loss.item() * images.size(0)
+        
+        print(f'top_1_total: {top_1_total}, top_5_total: {top_5_total}, total: {total}')
+        
+        # total += images.size(0)
+
+
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
 
         if idx % config.EVAL.EVAL_PRINT_FREQ == 0:
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+
+            top_1_batch = (top_1_total / total) # batches seen so far
+            top_5_batch = (top_5_total / total) 
+
+            print(f'top_1_batch: {top_1_batch}, top_5_batch: {top_5_batch}')
+
             print(
                 f'Test: [{idx}/{len(data_loader)}]\t'
                 f'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -146,7 +173,15 @@ def val_imagenet(data_loader, model, config):
                 f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                 f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
+        
+        total += 1
     print(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
+    
+    final_top_1 = (top_1_total / total)
+    final_top_5 = (top_5_total / total)
+
+    print(f'final_top_1: {final_top_1}, final_top_5: {final_top_5}')
+    print(f'top_1_total: {top_1_total} top_5_total: {top_5_total} total_loss: {total_loss} total: {total}')
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
 
 ####################### WHAT TRANSFORM FOR IMAGENET VALIDATION ?????????????
@@ -215,10 +250,10 @@ def build_dataset(is_train, config):
     transform = build_transform(is_train, config) ### not used for validation
     if config.DATASET.NAME == 'imagenet':
         val_data_dir = './data/imagenet/validation/'      
+        
         dataset = datasets.ImageFolder(val_data_dir, transform=transform)  
         nb_classes = 1000
-        
-        # hf_dataset = load_dataset('imagenet-1k')
+        # dataset = load_dataset('imagenet-1k')
         
         # if is_train:
         #     hf_dataset = hf_dataset['train']
@@ -253,9 +288,7 @@ def build_loader(config):
     # sampler_val = torch.utils.data.DistributedSampler(
     #     dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=False
     # )
-    # sampler_val = torch.utils.data.SequentialSampler(
-    #     dataset_val, shuffle=False
-    # )
+    sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
 
     # data_loader_train = torch.utils.data.DataLoader(
@@ -268,8 +301,9 @@ def build_loader(config):
 
     data_loader_val = torch.utils.data.DataLoader(
         dataset_val,
+        sampler=sampler_val,
         batch_size=config.DATASET.BATCH_SIZE,
-        shuffle=True,
+        shuffle=False,
         num_workers=config.DATASET.NUM_WORKERS,
         pin_memory=config.DATASET.PIN_MEMORY,
         drop_last=False
@@ -326,12 +360,13 @@ if __name__ == '__main__':
     model = build_model(config)
     # print(config)
     model = model.cuda()
-    model = torch.nn.DataParallel(model, device_ids=config.SYSTEM.device_ids)
+    # model = torch.nn.DataParallel(model, device_ids=config.SYSTEM.device_ids)
+
 
     # TODO: Load checkpoint
-    saved_checkpoint_path = ''
+    saved_checkpoint_path = '/home/ma906813/project2023/multi-region-attention/results/model_best_02-02-24_2146.pth'
     state_dict = torch.load(saved_checkpoint_path)
-    model.module.load_state_dict(state_dict['model'])
+    model.load_state_dict(state_dict['model'])
     # optimizer.load_state_dict(state_dict['optimizer'])
     # lr_scheduler.load_state_dict(state_dict['lr_scheduler'])
     # starting_epoch = state_dict['epoch']
@@ -340,6 +375,8 @@ if __name__ == '__main__':
 
     # TODO: build dataloader
     dataset_val, data_loader_val = build_loader(config)
+    print(f'dataset_val length: {len(dataset_val)}')
+    print(f'data_loader_val length: {len(data_loader_val)}')
 
     # TODO: validation
     with torch.no_grad():
