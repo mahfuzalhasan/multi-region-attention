@@ -116,7 +116,7 @@ def build_dataset(is_train, config):
             hf_dataset = hf_dataset['validation']
     elif config.DATASET.NAME == 'tiny-imagenet':
         hf_dataset = load_dataset('Maysee/tiny-imagenet')
-        nb_classes = 200
+        nb_classes = 1000
         if is_train:
             hf_dataset = hf_dataset['train']
         else:
