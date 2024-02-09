@@ -18,10 +18,10 @@ C.SYSTEM.seed = 12345
 remoteip = os.popen('pwd').read()
 C.SYSTEM.root_dir = os.getcwd()
 C.SYSTEM.abs_dir = osp.realpath(".")
-#C.SYSTEM.device_ids = [0] # for mahdi (lab-pc)
+C.SYSTEM.device_ids = [0] # for mahdi (lab-pc)
 # C.SYSTEM.device_ids = [0, 1] # for mahdi (newton)
 # C.SYSTEM.device_ids = [0, 1, 2, 3] # for FICS
-C.SYSTEM.DEVICE_IDS = [0, 1, 2, 3] # for nautilus
+# C.SYSTEM.DEVICE_IDS = [0, 1, 2, 3] # for nautilus
 
 
 """Dataset Config"""
@@ -43,7 +43,7 @@ C.DATASET.CACHE_MODE = 'part'
 
 ####################
 # Batch size for a single GPU, could be overwritten by command line argument
-C.DATASET.BATCH_SIZE = 170
+C.DATASET.BATCH_SIZE = 64
 # Path to dataset, could be overwritten by command line argument
 C.DATASET.DATA_PATH = ''
 # Dataset name
@@ -55,7 +55,7 @@ C.DATASET.ZIP_MODE = False
 # Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.
 C.DATASET.PIN_MEMORY = True
 # Number of data loading threads
-C.DATASET.NUM_WORKERS = 6
+C.DATASET.NUM_WORKERS = 1
 ##################
 
 
@@ -133,8 +133,8 @@ C.TRAIN.fix_bias = True
 C.TRAIN.bn_eps = 1e-3
 C.TRAIN.bn_momentum = 0.1
 C.TRAIN.PRINT_FREQ = 300
-C.TRAIN.RESUME_TRAIN = False 
-C.TRAIN.RESUME_MODEL_PATH = osp.join(C.SYSTEM.root_dir, 'results/saved_models/12-29-23_2141/model_195.pth')
+C.TRAIN.RESUME_TRAIN = True 
+C.TRAIN.RESUME_MODEL_PATH = osp.join(C.SYSTEM.root_dir, 'results/saved_models/02-02-24_2146/model_175.pth')
 
 # LR scheduler
 C.TRAIN.LR_SCHEDULER = edict()
