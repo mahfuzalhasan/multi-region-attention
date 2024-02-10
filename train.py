@@ -127,16 +127,20 @@ def Main(args):
     starting_epoch = 0
     max_accuracy = None
     if config.TRAIN.RESUME_TRAIN:
-        print('Loading model to resume train')
+        print('###### Loading model to resume train #########')
         state_dict = torch.load(config.TRAIN.RESUME_MODEL_PATH)
         model.module.load_state_dict(state_dict['model'])
         optimizer.load_state_dict(state_dict['optimizer'])
         lr_scheduler.load_state_dict(state_dict['lr_scheduler'])
-        starting_epoch = state_dict['epoch']
+        starting_epoch = state_dict['epoch'] + 1        # Start from next epoch
         max_accuracy = state_dict['max_accuracy']
-        old_run_id = state_dict['run_id']
-        print('resuming training with model: ', config.TRAIN.RESUME_MODEL_PATH)
-        print('resuming experiment from: ', old_run_id)
+        run_id = state_dict['run_id']
+        new_s_lr = optimizer.param_groups[0]['lr']
+        if dist.get_rank()==0:
+            print('resuming training with model: ', config.TRAIN.RESUME_MODEL_PATH)
+            print('old_run_id: ', run_id)
+            print(f'new starting lr:{new_s_lr}')
+            print("######### Model Loading Done ############")
 
     n_params = count_parameters(model)
     if dist.get_rank()==0:

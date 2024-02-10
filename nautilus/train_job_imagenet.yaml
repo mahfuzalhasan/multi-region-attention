@@ -13,7 +13,7 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-RTX-A6000
+                - NVIDIA-A40
       containers:
       - name: itj-container
         image: ubuntu

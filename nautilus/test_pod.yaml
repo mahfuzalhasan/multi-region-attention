@@ -48,6 +48,7 @@ spec:
         git clone --single-branch --branch ms-head-attn-conv-merge https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
         apt update && \
         echo 'git pulled successfully.' && \
+        cd /opt/repo/multi-region-attention && \
         torchrun --standalone --nproc_per_node=2 validation_only_local.py imagenet --devices 2 --batchsize 16 && \
         echo '===========Commands executed successfully.==========' && \
         sleep infinity
