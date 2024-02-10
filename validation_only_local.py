@@ -272,6 +272,8 @@ if __name__=='__main__':
     model.module.load_state_dict(state_dict['model'])
     run_id = state_dict['run_id']
     epoch = state_dict['epoch']
+    max_accuarcy = state_dict['max_accuracy']
+    print(f'best model from epoch:{epoch} max acc:{max_accuarcy}')
     exit()
     
     dataset_val, data_loader_val = build_loader(config)
