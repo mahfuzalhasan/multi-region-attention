@@ -267,12 +267,14 @@ if __name__=='__main__':
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[dist.get_rank()])
 
 
-    saved_checkpoint_path = '/project/results/saved_models/02-02-24_2146/model_best.pth'
+    saved_checkpoint_path = '/project/results/saved_models/02-07-24_0251/model_best.pth'
     state_dict = torch.load(saved_checkpoint_path)
     model.module.load_state_dict(state_dict['model'])
     run_id = state_dict['run_id']
     epoch = state_dict['epoch']
-
+    max_accuarcy = state_dict['max_accuracy']
+    print(f'best model from epoch:{epoch} max acc:{max_accuarcy}')
+    exit()
     
     dataset_val, data_loader_val = build_loader(config)
     if dist.get_rank()==0:
