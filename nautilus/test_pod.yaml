@@ -21,12 +21,12 @@ spec:
     resources:
       limits:
         memory: 32Gi
-        cpu: "4"
-        nvidia.com/gpu: "1"
+        cpu: "2"
+        nvidia.com/gpu: "2"
       requests:
         memory: 32Gi
-        cpu: "4"
-        nvidia.com/gpu: "1"
+        cpu: "2"
+        nvidia.com/gpu: "2"
     command: 
       - "sh"
       - "-c"
