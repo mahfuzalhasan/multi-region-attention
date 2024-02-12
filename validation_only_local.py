@@ -250,7 +250,7 @@ if __name__=='__main__':
     torch.distributed.init_process_group(backend=dist_backend)
     rank = dist.get_rank()
     torch.cuda.set_device(rank)
-    torch.distributed.barrier()     ## this keeps checkpoints during training for all processes to catch up and sync
+    # torch.distributed.barrier()     ## this keeps checkpoints during training for all processes to catch up and sync
     
     seed = config.SEED + dist.get_rank()
     torch.manual_seed(seed)
