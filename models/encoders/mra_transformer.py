@@ -145,9 +145,10 @@ class MRATransformer(nn.Module):
         stage = 0
         x_rgb, H, W = self.patch_embed1(x_rgb)
         self.logger.info('Stage 1 - Tokenization: {}'.format(x_rgb.shape))
-        # print('Stage 1 - Output: {}'.format(x_rgb.shape))
+        # print('Stage 1 - Tokenization: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block1):
             x_rgb = blk(x_rgb, H, W)
+        # print('########### Stage 1 - Output: {}'.format(x_rgb.shape))
         x_rgb = self.norm1(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 1 - Output: {}'.format(x_rgb.shape))

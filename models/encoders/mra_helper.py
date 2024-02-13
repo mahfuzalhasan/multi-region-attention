@@ -61,6 +61,65 @@ class DWConv(nn.Module):
         return total_flops
 
 
+class CCF_FFN(nn.Module):
+    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, norm_layer=nn.LayerNorm, drop=0.):
+        super().__init__()
+        """
+        FFN Block
+        """
+        out_features = out_features or in_features
+        hidden_features = hidden_features or in_features
+        self.C_hid = hidden_features
+        self.pwconv = nn.Conv2d(in_features, hidden_features, kernel_size=1, stride=1, padding=0, bias=True)
+        self.dwconv = nn.Conv2d(hidden_features, hidden_features, kernel_size=3, stride=1, padding=1, bias=True, groups=hidden_features)
+        self.fc = nn.Linear(hidden_features, in_features)
+
+        self.act = act_layer()
+        self.norm1 = norm_layer(hidden_features)
+        self.norm2 = norm_layer(hidden_features)
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
+
+    def forward(self, x, H, W):
+        B, N, C = x.shape
+        x_perm = x.permute(0, 2, 1).contiguous().view(B, C, H, W)
+        
+        p_out = self.pwconv(x_perm).reshape(B, self.C_hid, N).permute(0, 2, 1).contiguous()
+        p_out = self.act(self.norm1(p_out))
+        p_out = p_out.permute(0, 2, 1).reshape(B, self.C_hid, H, W)
+        
+        d_out = self.dwconv(p_out).reshape(B, self.C_hid, N).permute(0, 2, 1).contiguous()
+        d_out = self.act(self.norm2(d_out))
+        
+        x_out = self.fc(d_out)
+        x = x + x_out
+        return x
+
+# class Downsampling(nn.Module):
+#     """
+#     Downsampling after each transformer block
+#     """
+#     def __init__(self, img_size=(224, 224), patch_size=4, in_chans=3, embed_dim=96, 
+#                     use_conv_embed=False, norm_layer=None, use_pre_norm=False, is_stem=False):
+#         super().__init__()
+
+#         self.dwconv = nn.Conv2d(in_chans, in_chans, kernel_size=3, stride=1, padding=1, bias=True, group=hidden_features)
+
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
@@ -110,9 +169,6 @@ class Mlp(nn.Module):
         return flops_mlp
 
 class Block(nn.Module):
-    """
-    Transformer Block: Self-Attention -> Mix FFN -> OverLap Patch Merging
-    """
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, n_local_region_scales=3, img_size=(1024, 1024)):
         super().__init__()
@@ -129,7 +185,7 @@ class Block(nn.Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         
-        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+        self.mlp = CCF_FFN(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, norm_layer=norm_layer, drop=drop)
 
         self.apply(self._init_weights)
 
@@ -221,6 +277,7 @@ class OverlapPatchEmbed(nn.Module):
 
         total_flops = conv_flops + norm_flops
         return total_flops
+
     
 class PatchEmbed(nn.Module):
     r""" Image to Patch Embedding

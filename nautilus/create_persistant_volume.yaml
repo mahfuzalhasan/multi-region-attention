@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mahfuz-pvc
+  name: imagenet-pvc
 spec:
   storageClassName: rook-cephfs
   accessModes:

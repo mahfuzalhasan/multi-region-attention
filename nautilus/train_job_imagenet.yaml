@@ -65,7 +65,7 @@ spec:
           medium: Memory
       - name: data
         persistentVolumeClaim:
-          claimName: mahfuz-pvc 
+          claimName: imagenet-pvc 
       restartPolicy: Never
   backoffLimit: 0
 
