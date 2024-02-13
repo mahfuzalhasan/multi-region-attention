@@ -11,7 +11,7 @@ spec:
           - key: nvidia.com/gpu.product
             operator: In
             values:
-            - NVIDIA-GeForce-RTX-3090
+            - NVIDIA-RTX-A6000
   containers:
   - name: t-pod
     image: ubuntu
@@ -21,11 +21,11 @@ spec:
     resources:
       limits:
         memory: 32Gi
-        cpu: "2"
+        cpu: "4"
         nvidia.com/gpu: "2"
       requests:
         memory: 32Gi
-        cpu: "2"
+        cpu: "4"
         nvidia.com/gpu: "2"
     command: 
       - "sh"
@@ -49,10 +49,11 @@ spec:
         apt update && \
         echo 'git pulled successfully.' && \
         cd /opt/repo/multi-region-attention && \
-        torchrun --standalone --nproc_per_node=2 validation_only_local.py imagenet --devices 2 --batchsize 32 && \
+        torchrun --standalone --nproc_per_node=2 validation_only_local.py imagenet --devices 2 --batchsize 16 && \
         echo '===========Commands executed successfully.==========' && \
         sleep infinity
   volumes:
     - name: project
       persistentVolumeClaim:
         claimName: mahfuz-pvc
+  restartPolicy: Never
