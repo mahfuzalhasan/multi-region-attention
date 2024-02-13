@@ -10,8 +10,13 @@
     kubectl get pods
     kubectl get pvc    
 
+
 -- copy files from persistent volume to local:
     kubectl cp <namespace>/<pod-name>:/<path-to-file> <path-to-local>
+
+-- copy using HTTPS (because kubectl cp often fails with unexpected EOF due to connection issue)    
+    kubectl exec -it <pod-name> -n <namespace> -- python -m http.server 8000    
+    kubectl port-forward <pod-name> 8000:8000 -n <namespace>
 
 -- delete: 
     kubectl delete job my-job
