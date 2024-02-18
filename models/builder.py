@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import sys
-# sys.path.append("..")
-sys.path.append("/home/ma906813/project2023/multi-region-attention")
+sys.path.append("..")
+# sys.path.append("/home/ma906813/project2023/multi-region-attention")
 from functools import partial
 import numpy as np
 
