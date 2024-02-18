@@ -268,6 +268,7 @@ if __name__=='__main__':
 
 
     saved_checkpoint_path = '/project/results/saved_models/02-14-24_2014/model_best.pth'
+    # saved_checkpoint_path = '/home/ma906813/project2023/multi-region-attention/model_best.pth'
     state_dict = torch.load(saved_checkpoint_path)
     model.module.load_state_dict(state_dict['model'])
     run_id = state_dict['run_id']

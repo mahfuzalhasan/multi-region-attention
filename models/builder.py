@@ -27,7 +27,7 @@ class EncoderDecoder(nn.Module):
         # import backbone and decoder
         if cfg.MODEL.backbone == 'mra_tiny':
             self.logger.info('Using backbone: Segformer-B0')
-            from encoders.mra_transformer import mit_b0 as backbone
+            from .encoders.mra_transformer import mit_b0 as backbone
             self.backbone = backbone(fuse_cfg=cfg, norm_layer = norm_layer)
         
         elif cfg.MODEL.backbone == 'mra_small':
