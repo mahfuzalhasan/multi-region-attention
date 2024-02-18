@@ -258,14 +258,11 @@ if __name__=='__main__':
     cudnn.benchmark = True
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
-
     torch.cuda.synchronize()
-
 
     model = build_model(config)
     model.to(dist.get_rank())
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[dist.get_rank()])
-
 
     saved_checkpoint_path = '/project/results/saved_models/02-13-24_1833/model_best.pth'
     state_dict = torch.load(saved_checkpoint_path)
