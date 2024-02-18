@@ -55,5 +55,5 @@ spec:
   volumes:
     - name: project
       persistentVolumeClaim:
-        claimName: mahfuz-pvc
+        claimName: imagenet-pvc
   restartPolicy: Never
