@@ -267,7 +267,7 @@ if __name__=='__main__':
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[dist.get_rank()])
 
 
-    saved_checkpoint_path = '/project/results/saved_models/02-07-24_0251/model_best.pth'
+    saved_checkpoint_path = '/project/results/saved_models/02-14-24_2014/model_best.pth'
     state_dict = torch.load(saved_checkpoint_path)
     model.module.load_state_dict(state_dict['model'])
     run_id = state_dict['run_id']

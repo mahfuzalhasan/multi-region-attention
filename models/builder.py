@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import sys
-sys.path.append("..")
+# sys.path.append("..")
+sys.path.append("/home/ma906813/project2023/multi-region-attention")
 from functools import partial
 import numpy as np
 
@@ -26,7 +27,7 @@ class EncoderDecoder(nn.Module):
         # import backbone and decoder
         if cfg.MODEL.backbone == 'mra_tiny':
             self.logger.info('Using backbone: Segformer-B0')
-            from .encoders.mra_transformer import mit_b0 as backbone
+            from encoders.mra_transformer import mit_b0 as backbone
             self.backbone = backbone(fuse_cfg=cfg, norm_layer = norm_layer)
         
         elif cfg.MODEL.backbone == 'mra_small':
@@ -77,6 +78,10 @@ class EncoderDecoder(nn.Module):
                 loss += self.aux_rate * self.criterion(aux_fm, label.long())
             # print(f'from builder out:{out.size()} loss:{loss}')
             return loss, out
+    
+    def flops(self):
+        flops = self.backbone.flops()
+        return flops
 
 if __name__=="__main__":
     criterion = None
@@ -89,3 +94,4 @@ if __name__=="__main__":
     rgb = torch.randn(B, C, H, W)
     y = model(rgb)
     print("final output: ", y.shape)
+    print(model.flops())
