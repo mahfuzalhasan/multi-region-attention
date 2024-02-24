@@ -67,9 +67,12 @@ class CCF_FFN(nn.Module):
         """
         FFN Block
         """
-        out_features = out_features or in_features
-        hidden_features = hidden_features or in_features
+
+        self.in_features = in_features
+        self.out_features = out_features or in_features
+        self.hidden_features = hidden_features or in_features
         self.C_hid = hidden_features
+        # print(f'in_features: {in_features}, hidden_features: {hidden_features}, out_features: {out_features}')
         self.pwconv = nn.Conv2d(in_features, hidden_features, kernel_size=1, stride=1, padding=0, bias=True)
         self.dwconv = nn.Conv2d(hidden_features, hidden_features, kernel_size=3, stride=1, padding=1, bias=True, groups=hidden_features)
         self.fc = nn.Linear(hidden_features, in_features)
@@ -96,9 +99,11 @@ class CCF_FFN(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, H, W):
+        # print(f'x.shape:', {x.shape})
         B, N, C = x.shape
         x_perm = x.permute(0, 2, 1).contiguous().view(B, C, H, W)
-        
+        # print(f'x_perm.shape:', {x_perm.shape}) # IN
+        # print(f'self.pwconv(x_perm)', {self.pwconv(x_perm).shape}) # pwconv OUT
         p_out = self.pwconv(x_perm).reshape(B, self.C_hid, N).permute(0, 2, 1).contiguous()
         p_out = self.act(self.norm1(p_out))
         p_out = p_out.permute(0, 2, 1).reshape(B, self.C_hid, H, W)
@@ -109,6 +114,24 @@ class CCF_FFN(nn.Module):
         x_out = self.fc(d_out)
         x = x + x_out
         return x
+
+    def flops(self, H, W):
+        # pwconv FLOPs = weights + bias
+        kH, kW = 1, 1
+        Hout, Wout = H, W # pointwise convolution does not change the dimensions
+        pwconv_flops = (2 * self.hidden_features * self.in_features * Hout * Wout * kH * kW) + (self.hidden_features * Hout * Wout) 
+
+        # dwconv FLOPs
+        kH, kW = 3, 3
+        Hout = H + (2 * 1 - 3) // 1 + 1
+        Wout = W + (2 * 1 - 3) // 1 + 1
+        dwconv_flops = (self.hidden_features * Hout * Wout * kH * kW * 2)
+
+        # fc FLOPs
+        fc_flops = (2 * self.hidden_features * self.in_features)
+
+        total_flops = pwconv_flops + dwconv_flops + fc_flops
+        return total_flops
 
 # class Downsampling(nn.Module):
 #     """
@@ -209,12 +232,12 @@ class Block(nn.Module):
         x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
         return x
     
-    def flops(self):
+    def flops(self, H, W):
         # FLOPs for MultiScaleAttention
         attn_flops = self.attn.flops()
 
         # FLOPs for Mlp
-        mlp_flops = self.mlp.flops()
+        mlp_flops = self.mlp.flops(H, W)
 
         total_flops = attn_flops + mlp_flops
         return total_flops
@@ -264,6 +287,7 @@ class OverlapPatchEmbed(nn.Module):
         return x, H, W
 
     def flops(self):
+        # TODO: need to be updated
         # Correct calculation for output dimensions
         padding = (self.patch_size[0] // 2, self.patch_size[1] // 2)
         output_height = ((self.input_shape[2] + 2 * padding[0] - self.patch_size[0]) // self.stride) + 1
@@ -347,7 +371,8 @@ class PatchEmbed(nn.Module):
             x = self.norm(x)
         return x, H, W
 
-    def flops(self):
+    def flops(self): 
+        # TODO: need to be updated
         Ho, Wo = self.patches_resolution
         if self.use_conv_embed:
             flops = Ho * Wo * self.embed_dim * self.in_chans * (self.kernel_size**2)
@@ -376,3 +401,11 @@ class PosCNN(nn.Module):
 
     def no_weight_decay(self):
         return ['proj.%d.weight' % i for i in range(4)]
+    
+
+
+if __name__ == '__main__':
+    model = CCF_FFN(768, 3072)
+    x = torch.randn(1, 49, 768)
+    y = model(x, 7, 7)
+    print(y.shape)
