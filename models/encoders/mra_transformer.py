@@ -28,7 +28,7 @@ from utils.logger import get_logger
 
 # How to apply multihead multiscale
 class MRATransformer(nn.Module):
-    def __init__(self, img_size=(1024, 1024), patch_size=4, in_chans=3, num_classes=1000, embed_dims=[96, 192, 384, 768], 
+    def __init__(self, img_size=(224, 224), patch_size=4, in_chans=3, num_classes=1000, embed_dims=[96, 192, 384, 768], 
                  num_heads=[3, 6, 12, 24], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, local_region_scales=[3, 3, 2, 1], 
                  depths=[2, 2, 6, 2]):
@@ -37,6 +37,7 @@ class MRATransformer(nn.Module):
         self.depths = depths
         self.logger = get_logger()
         self.img_size = img_size
+        self.embed_dims = embed_dims
         # print('img_size: ',img_size)
 
         # patch_embed
@@ -152,7 +153,7 @@ class MRATransformer(nn.Module):
         x_rgb = self.norm1(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 1 - Output: {}'.format(x_rgb.shape))
-        # print('########### Stage 1 - Output: {}'.format(x_rgb.shape))
+        print('########### Stage 1 - Output: {}'.format(x_rgb.shape))
 
         # stage 2
         stage += 1
@@ -163,7 +164,7 @@ class MRATransformer(nn.Module):
         x_rgb = self.norm2(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 2 - Output: {}'.format(x_rgb.shape))
-        # print('############# Stage 2 - Output: {}'.format(x_rgb.shape))
+        print('############# Stage 2 - Output: {}'.format(x_rgb.shape))
 
         # stage 3
         stage += 1
@@ -174,7 +175,7 @@ class MRATransformer(nn.Module):
         x_rgb = self.norm3(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 3 - Output: {}'.format(x_rgb.shape))
-        # print('###########Stage 3 - Output: {}'.format(x_rgb.shape))
+        print('###########Stage 3 - Output: {}'.format(x_rgb.shape))
 
         # stage 4
         stage += 1
@@ -186,11 +187,14 @@ class MRATransformer(nn.Module):
         x_rgb = self.norm4(x_rgb)   # B, L, C
         # x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 4 - Output: {}'.format(x_rgb.shape))
-        # print('########## Stage 4 - Output: {}'.format(x_rgb.shape))
+        print('########## Stage 4 - Output: {}'.format(x_rgb.shape))
 
         x = x_rgb.transpose(1,2).contiguous()
+        print(f'x before avg pool: ',x.shape)
         x = self.avgpool(x)
+        print(f'x after avg pool: ',x.shape)
         x = torch.flatten(x, 1)
+        print(f'final x: ',x.shape)
         cls_output = self.head(x)
         # print(f'classification output:{cls_output.shape}')
         # print('Stage 4 - Output: {}'.format(x_rgb.shape))
@@ -211,14 +215,29 @@ class MRATransformer(nn.Module):
         flops += self.patch_embed4.flops()
 
         for i, blk in enumerate(self.block1):
-            flops += blk.flops()
-        for i, blk in enumerate(self.block2):
-            flops += blk.flops()
-        for i, blk in enumerate(self.block3):
-            flops += blk.flops()
-        for i, blk in enumerate(self.block4):
-            flops += blk.flops()
+            flops += blk.flops(self.img_size[0]//4, self.img_size[1]//4)
         
+        norm_flops = ((self.img_size[0]//4) **2) * self.embed_dims[0]
+        
+        for i, blk in enumerate(self.block2):
+            flops += blk.flops(self.img_size[0]//8, self.img_size[1]//8)
+        
+        norm_flops += ((self.img_size[0]//8) **2) * self.embed_dims[1]
+
+        for i, blk in enumerate(self.block3):
+            flops += blk.flops(self.img_size[0]//16, self.img_size[1]//16)
+        
+        norm_flops += ((self.img_size[0]//16) **2) * self.embed_dims[2]
+        
+        for i, blk in enumerate(self.block4):
+            flops += blk.flops(self.img_size[0]//32, self.img_size[1]//32)
+        
+        norm_flops += ((self.img_size[0]//32) **2) * self.embed_dims[3]
+
+        adv_avg_pool_flops = self.embed_dims[3] * ((self.img_size[0]//32) **2)
+        cls_flops = 2 * self.embed_dims[3] * self.num_classes
+
+        flops += norm_flops + adv_avg_pool_flops + cls_flops
         return flops
 
 
@@ -258,12 +277,15 @@ class mit_b2(MRATransformer):
 
 if __name__=="__main__":
     backbone = mit_b0(fuse_cfg=cfg, norm_layer = nn.BatchNorm2d)
+    print("flops: ",backbone.flops())
     
     # ########print(backbone)
-    B = 8
+    
+    B = 1
     C = 3
     H = 224
     W = 224
+    
     device = 'cuda:1'
     rgb = torch.randn(B, C, H, W)
     outputs = backbone(rgb)

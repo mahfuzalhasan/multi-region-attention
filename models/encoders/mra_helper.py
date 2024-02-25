@@ -117,20 +117,25 @@ class CCF_FFN(nn.Module):
 
     def flops(self, H, W):
         # pwconv FLOPs = weights + bias
+        N = H*W
         kH, kW = 1, 1
-        Hout, Wout = H, W # pointwise convolution does not change the dimensions
-        pwconv_flops = (2 * self.hidden_features * self.in_features * Hout * Wout * kH * kW) + (self.hidden_features * Hout * Wout) 
+        # Hout, Wout = H, W # pointwise convolution does not change the dimensions
+        pwconv_flops = (2 * self.hidden_features * self.in_features * H * W * kH * kW) + (self.hidden_features * H * W)
+        #norm_1
+        norm_1_flops = N * self.hidden_features
 
         # dwconv FLOPs
         kH, kW = 3, 3
-        Hout = H + (2 * 1 - 3) // 1 + 1
-        Wout = W + (2 * 1 - 3) // 1 + 1
-        dwconv_flops = (self.hidden_features * Hout * Wout * kH * kW * 2)
+        # Hout = H + (2 * 1 - 3) // 1 + 1
+        # Wout = W + (2 * 1 - 3) // 1 + 1
+        dwconv_flops = (self.hidden_features * H * W * kH * kW * 2)
+        #norm_2
+        norm_2_flops = N * self.hidden_features
 
         # fc FLOPs
         fc_flops = (2 * self.hidden_features * self.in_features)
 
-        total_flops = pwconv_flops + dwconv_flops + fc_flops
+        total_flops = pwconv_flops + norm_1_flops + dwconv_flops + norm_2_flops + fc_flops
         return total_flops
 
 # class Downsampling(nn.Module):
@@ -195,6 +200,7 @@ class Block(nn.Module):
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, n_local_region_scales=3, img_size=(1024, 1024)):
         super().__init__()
+        self.dim = dim
         self.norm1 = norm_layer(dim)
         self.n_local_region_scales = n_local_region_scales
         mlp_hidden_dim = int(dim * mlp_ratio)
@@ -233,13 +239,17 @@ class Block(nn.Module):
         return x
     
     def flops(self, H, W):
+        N = H*W
         # FLOPs for MultiScaleAttention
+
         attn_flops = self.attn.flops()
+        norm_1_flops = N * self.dim
+        norm_2_flops = N * self.dim
 
         # FLOPs for Mlp
         mlp_flops = self.mlp.flops(H, W)
 
-        total_flops = attn_flops + mlp_flops
+        total_flops = attn_flops + norm_1_flops + mlp_flops + norm_2_flops
         return total_flops
 
 

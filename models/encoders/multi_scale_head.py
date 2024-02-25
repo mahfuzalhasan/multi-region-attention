@@ -208,20 +208,30 @@ class MultiScaleAttention(nn.Module):
     
 
     def flops(self):
-        # qkv projection flops
-        flops_qkv = 2 * self.dim * self.dim * 3
-
+        # # qkv = self.qkv_proj(x): For linear projection
+        N = self.window_size * self.window_size
+        flops_qkv = self.N_G * N * self.dim * 3 * self.dim 
+        
+        r = math.sqrt(self.N_G)
         # attention flops
+        
+        flops_per_group = 0
         for i in range(self.n_local_region_scales):
-            if i > 0:
-                # TODO: merge_regions_spatial flops
-                ## Only F.avg_pool3d
+            if i>0:
+                # merge region usingn avg pool --> merge_size = math.pow(2,i)
+                flops_per_group += (r**2) * N * self.local_head * self.head_dim
             
-            # TODO: attention flops
-            ## q*scale (??) + q*kT + relative_position_bias + softmax + attn@v
+            N_G_local = self.N_G//math.pow(4,i)
+            # A = q*K.T
+            flops_per_group += N_G_local * self.local_head * N * self.head_dim * N 
+            # A*v
+            flops_per_group += N_G_local * self.local_head * N * N * self.head_dim
         
         # projection flops
-        flops_proj = 2 * self.dim * self.dim
+        flops_proj = 2 * (self.H * self.W) * self.dim * self.dim
+        # total
+        flops = flops_qkv + flops_per_group + flops_proj
+        return flops
 
 
 
