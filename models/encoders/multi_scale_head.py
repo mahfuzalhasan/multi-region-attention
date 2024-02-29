@@ -125,7 +125,7 @@ class MultiScaleAttention(nn.Module):
         self.W=W
         A = []
         B, N, C = x.shape
-        
+
         assert N==self.H*self.W
         x = x.view(B, H, W, C)
 
@@ -136,6 +136,7 @@ class MultiScaleAttention(nn.Module):
         self.attn_mat_per_head = []
         
         for i in range(self.n_local_region_scales):
+            # print(f'###########i:{i}####################')
             local_C = C//self.n_local_region_scales
             # 3, B, N, local_C
             qkv = temp[:, :, :, i*local_C:i*local_C + local_C]

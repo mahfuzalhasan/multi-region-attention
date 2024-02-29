@@ -44,7 +44,7 @@ class MRATransformer(nn.Module):
         self.patch_embed2 = PatchMerging(img_size=(img_size[0]// 4,img_size[1]//4), in_chans=embed_dims[0], norm_layer=norm_layer)
         self.patch_embed3 = PatchMerging(img_size=(img_size[0]//8, img_size[1]//8), in_chans=embed_dims[1], norm_layer=norm_layer)
         self.patch_embed4 = PatchMerging(img_size=(img_size[0]//16, img_size[1]//16), in_chans=embed_dims[2], norm_layer=norm_layer)
-        
+
         # transformer encoder
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         cur = 0
