@@ -113,6 +113,11 @@ class MultiScaleAttention(nn.Module):
         x = (attn @ v)
         return x, attn
     
+    def downsample(self, x, kernel_size):
+        x1 = F.avg_pool2d(x, kernel_size)
+        x2 = F.max_pool2d(x, kernel_size)
+        return x1+x2
+    
 
     def upsample(self, x):
         B, l_h, R, Nr, C_h = x.shape
@@ -175,27 +180,46 @@ class MultiScaleAttention(nn.Module):
         self.attn_mat_per_head = []
         
         for i in range(self.n_local_region_scales):
+            # print(f'#########i:{i}#############\n')
             local_C = C//self.n_local_region_scales
             qkv = temp[:, :, :, i*local_C:i*local_C + local_C]
             # 3, B*num_region_7x7, num_local_head, Nr, head_dim
             qkv = qkv.reshape(3, B_, Nr, self.local_head, self.head_dim).permute(0, 1, 3, 2, 4).contiguous()
+
+            output_size = (self.H//pow(2,i), self.W//pow(2,i))
+            n_region = (output_size[0]//self.window_size) * (output_size[1]//self.window_size)
+            
             if i>0:
                 #3, B, num_local_head, num_region_7x7, 49, head_dim 
-                qkv = qkv.view(3, B, self.N_G, self.local_head, Nr, self.head_dim).permute(0, 1, 3, 2, 4, 5).contiguous()
-                #B*3, num_local_head, num_region_7x7, 49, head_dim
-                qkv = self.merge_regions_spatial(qkv, merge_size=int(math.pow(2,i)))
-                # 3, B_, num_local_head, Nr, head_dim
-                qkv = qkv.permute(0, 2, 1, 3, 4).contiguous().reshape(3, -1, self.local_head, Nr, self.head_dim)
+                # qkv = qkv.view(3, B, self.N_G, self.local_head, Nr, self.head_dim).permute(0, 1, 3, 2, 4, 5).contiguous()
+                ########## simple downsampling --> 2D kernel
+                qkv = qkv.view(3, B, self.N_G, self.local_head, Nr, self.head_dim).reshape(-1, self.N_G, self.local_head, Nr, self.head_dim).permute(0, 2, 4, 1, 3).contiguous()
+                qkv = qkv.reshape(B*3, local_C, H, W)
+                kernel_size = int(math.pow(2,i))
+                qkv = self.downsample(qkv, kernel_size=kernel_size)
+                qkv = qkv.reshape(3, B, self.local_head, self.head_dim, n_region, Nr).permute(0, 1, 4, 2, 5, 3).contiguous()
+                qkv = qkv.reshape(3, -1, self.local_head, Nr, self.head_dim)
+                ##############################
+
+                # #B*3, num_local_head, num_region_7x7, 49, head_dim
+                # qkv = self.merge_regions_spatial(qkv, merge_size=int(math.pow(2,i)))
+                # # 3, B_, num_local_head, Nr, head_dim
+                # qkv = qkv.permute(0, 2, 1, 3, 4).contiguous().reshape(3, -1, self.local_head, Nr, self.head_dim)
 
             q,k,v = qkv[0], qkv[1], qkv[2]      #B_, h, Nr, Ch
             
             y, attn = self.attention(q, k, v)
-            output_size = (self.H//pow(2,i), self.W//pow(2,i))
-            n_region = (output_size[0]//self.window_size) * (output_size[1]//self.window_size)
             
-            y = y.reshape(B, n_region, self.local_head, self.window_size* self.window_size, self.head_dim).permute(0, 2, 1, 3, 4)
+            
+            # y = y.reshape(B, n_region, self.local_head, self.window_size* self.window_size, self.head_dim).permute(0, 2, 1, 3, 4)
+            ### For simple upsample
+            y = y.reshape(B, n_region, self.local_head, self.window_size* self.window_size, self.head_dim).permute(0, 2, 4, 1, 3).contiguous()
+            y = y.reshape(B, local_C, output_size[0], output_size[1])
+            ###################### 
             if i>0:
-                y = self.upsample(y)
+                y = F.interpolate(y, size=(self.H, self.W), mode='bilinear')
+                # y = self.upsample(y)
+            y = y.view(B, self.local_head, self.head_dim, self.H, self.W).permute(0, 1, 3, 4, 2).contiguous()
             self.attn_outcome_per_group.append(y)
 
         # # #concatenating multi-group attention
