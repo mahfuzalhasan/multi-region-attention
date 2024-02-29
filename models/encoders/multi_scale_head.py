@@ -114,8 +114,8 @@ class MultiScaleAttention(nn.Module):
         return x, attn
     
     def downsample(self, x, kernel_size):
-        x1 = F.avg_pool2d(x, kernel_size)
-        x2 = F.max_pool2d(x, kernel_size)
+        x1 = F.avg_pool2d(x, kernel_size=kernel_size, stride=kernel_size)
+        x2 = F.max_pool2d(x, kernel_size=kernel_size, stride=kernel_size)
         return x1+x2
 
     def forward(self, x, H, W):
@@ -125,7 +125,7 @@ class MultiScaleAttention(nn.Module):
         self.W=W
         A = []
         B, N, C = x.shape
-        # print('reshape: ',x.shape)
+        
         assert N==self.H*self.W
         x = x.view(B, H, W, C)
 
