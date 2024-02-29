@@ -61,6 +61,51 @@ class DWConv(nn.Module):
         return total_flops
 
 
+class PatchMerging(nn.Module):
+    r""" Patch Merging Layer.
+
+    Args:
+        img_size (tuple[int]): Resolution of input feature. 
+        in_chans (int): Number of input channels.
+        norm_layer (nn.Module, optional): Normalization layer.  Default: nn.LayerNorm
+    """
+
+    def __init__(self, img_size, in_chans=3, norm_layer=nn.LayerNorm, **kwargs):
+        super().__init__()
+        self.input_resolution = img_size
+        self.dim = in_chans
+        self.reduction = nn.Linear(4 * in_chans, 2 * in_chans, bias=False)
+        self.norm = norm_layer(4 * in_chans)
+
+    def forward(self, x):
+        """
+        x: B, C, H, W
+        """       
+        B, C, H, W = x.shape 
+
+        x = x.permute(0, 2, 3, 1).contiguous()
+
+        x0 = x[:, 0::2, 0::2, :]  # B H/2 W/2 C
+        x1 = x[:, 1::2, 0::2, :]  # B H/2 W/2 C
+        x2 = x[:, 0::2, 1::2, :]  # B H/2 W/2 C
+        x3 = x[:, 1::2, 1::2, :]  # B H/2 W/2 C
+        x = torch.cat([x0, x1, x2, x3], -1)  # B H/2 W/2 4*C
+        x = x.view(B, -1, 4 * C)  # B H/2*W/2 4*C
+
+        x = self.norm(x)
+        x = self.reduction(x)
+
+        return x, H//2, W//2
+
+    def extra_repr(self) -> str:
+        return f"input_resolution={self.input_resolution}, dim={self.dim}"
+
+    def flops(self):
+        H, W = self.input_resolution
+        flops = H * W * self.dim
+        flops += (H // 2) * (W // 2) * 4 * self.dim * 2 * self.dim
+        return flops
+
 class CCF_FFN(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, norm_layer=nn.LayerNorm, drop=0.):
         super().__init__()
@@ -185,7 +230,7 @@ class Block(nn.Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         
-        self.mlp = CCF_FFN(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, norm_layer=norm_layer, drop=drop)
+        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
         self.apply(self._init_weights)
 
@@ -232,8 +277,7 @@ class OverlapPatchEmbed(nn.Module):
         self.embed_dim = embed_dim
         self.input_shape = None
 
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=stride,
-                              padding=(patch_size[0] // 2, patch_size[1] // 2))
+        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=stride, padding=(patch_size[0]//2, patch_size[1]//2))
         self.norm = nn.LayerNorm(embed_dim)
         self.patch_size = patch_size
         self.apply(self._init_weights)

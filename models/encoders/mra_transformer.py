@@ -14,7 +14,7 @@ sys.path.append(model_dir)
 
 import torch
 import torch.nn as nn
-from mra_helper import OverlapPatchEmbed, Block, PosCNN, PatchEmbed
+from mra_helper import OverlapPatchEmbed, Block, PosCNN, PatchEmbed, PatchMerging
 # import sys
 # sys.path.append('..')
 from configs.config_imagenet import config as cfg
@@ -40,14 +40,11 @@ class MRATransformer(nn.Module):
         # print('img_size: ',img_size)
 
         # patch_embed
-        self.patch_embed1 = PatchEmbed(img_size = self.img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dims[0], 
-                                       norm_layer=norm_layer)
-        self.patch_embed2 = PatchEmbed(img_size=(img_size[0]// 4,img_size[1]//4),patch_size=2, in_chans=embed_dims[0],
-                                              embed_dim=embed_dims[1], norm_layer=norm_layer)
-        self.patch_embed3 = PatchEmbed(img_size=(img_size[0]//8, img_size[1]//8), patch_size=2, in_chans=embed_dims[1],
-                                              embed_dim=embed_dims[2], norm_layer=norm_layer)
-        self.patch_embed4 = PatchEmbed(img_size=(img_size[0]//16, img_size[1]//16), patch_size=2, in_chans=embed_dims[2],
-                                              embed_dim=embed_dims[3], norm_layer=norm_layer)
+        self.patch_embed1 = PatchEmbed(img_size = self.img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dims[0], norm_layer=norm_layer)
+        self.patch_embed2 = PatchMerging(img_size=(img_size[0]// 4,img_size[1]//4), in_chans=embed_dims[0], norm_layer=norm_layer)
+        self.patch_embed3 = PatchMerging(img_size=(img_size[0]//8, img_size[1]//8), in_chans=embed_dims[1], norm_layer=norm_layer)
+        self.patch_embed4 = PatchMerging(img_size=(img_size[0]//16, img_size[1]//16), in_chans=embed_dims[2], norm_layer=norm_layer)
+        
         # transformer encoder
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         cur = 0
@@ -144,7 +141,6 @@ class MRATransformer(nn.Module):
         # stage 1
         stage = 0
         x_rgb, H, W = self.patch_embed1(x_rgb)
-        self.logger.info('Stage 1 - Tokenization: {}'.format(x_rgb.shape))
         # print('Stage 1 - Tokenization: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block1):
             x_rgb = blk(x_rgb, H, W)
@@ -192,8 +188,6 @@ class MRATransformer(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         cls_output = self.head(x)
-        # print(f'classification output:{cls_output.shape}')
-        # print('Stage 4 - Output: {}'.format(x_rgb.shape))
 
         # B, 768, 7, 7
         return x_rgb, cls_output
@@ -227,9 +221,9 @@ class mit_b0(MRATransformer):
         img_size = (fuse_cfg.IMAGE.image_height, fuse_cfg.IMAGE.image_width)
         heads = fuse_cfg.MODEL.heads    #3,6,12,24
         super(mit_b0, self).__init__(
-            img_size = img_size, patch_size = 4, num_classes=fuse_cfg.DATASET.NUM_CLASSES, embed_dims=[128, 192, 384, 768], 
+            img_size = img_size, patch_size = 4, num_classes=fuse_cfg.DATASET.NUM_CLASSES, embed_dims=[96, 192, 384, 768], 
             num_heads=heads, mlp_ratios=[4, 4, 4, 4], qkv_bias=True, 
-            norm_layer=partial(nn.LayerNorm, eps=1e-6), local_region_scales = [4, 3, 2, 1], depths=[2, 2, 6, 2], 
+            norm_layer=partial(nn.LayerNorm, eps=1e-6), local_region_scales = [3, 3, 2, 1], depths=[2, 2, 6, 2], 
             drop_rate=fuse_cfg.MODEL.DROP_RATE, drop_path_rate=fuse_cfg.MODEL.DROP_PATH_RATE)
 
 
