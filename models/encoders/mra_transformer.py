@@ -37,6 +37,7 @@ class MRATransformer(nn.Module):
         self.depths = depths
         self.logger = get_logger()
         self.img_size = img_size
+        self.embed_dims = embed_dims
         # print('img_size: ',img_size)
 
         # patch_embed
@@ -56,7 +57,6 @@ class MRATransformer(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             n_local_region_scales=local_region_scales[0], img_size=(img_size[0]// 4,img_size[1]//4))
             for i in range(depths[0])])
-        self.norm1 = norm_layer(embed_dims[0])
         cur += depths[0]
 
         # 28x28
@@ -65,7 +65,6 @@ class MRATransformer(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             n_local_region_scales=local_region_scales[1], img_size=(img_size[0]//8, img_size[1]//8))
             for i in range(depths[1])])
-        self.norm2 = norm_layer(embed_dims[1])
         cur += depths[1]
 
         # 14x14
@@ -74,7 +73,6 @@ class MRATransformer(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             n_local_region_scales=local_region_scales[2], img_size=(img_size[0]// 16,img_size[1]//16))
             for i in range(depths[2])])
-        self.norm3 = norm_layer(embed_dims[2])
         cur += depths[2]
 
         #7x7
@@ -83,7 +81,7 @@ class MRATransformer(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             n_local_region_scales=local_region_scales[3], img_size=(img_size[0]// 32,img_size[1]//32))
             for i in range(depths[3])])             
-        self.norm4 = norm_layer(embed_dims[3])
+        self.norm = norm_layer(embed_dims[3])
 
         self.avgpool = nn.AdaptiveAvgPool1d(1)
         self.head = nn.Linear(embed_dims[3], num_classes) if self.num_classes > 0 else nn.Identity()
@@ -145,9 +143,7 @@ class MRATransformer(nn.Module):
         for j,blk in enumerate(self.block1):
             x_rgb = blk(x_rgb, H, W)
         # print('########### Stage 1 - Output: {}'.format(x_rgb.shape))
-        x_rgb = self.norm1(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        self.logger.info('Stage 1 - Output: {}'.format(x_rgb.shape))
         # print('########### Stage 1 - Output: {}'.format(x_rgb.shape))
 
         # stage 2
@@ -156,7 +152,7 @@ class MRATransformer(nn.Module):
         self.logger.info('Stage 2 - Tokenization: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block2):
             x_rgb = blk(x_rgb, H, W)
-        x_rgb = self.norm2(x_rgb)
+        # x_rgb = self.norm2(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 2 - Output: {}'.format(x_rgb.shape))
         # print('############# Stage 2 - Output: {}'.format(x_rgb.shape))
@@ -167,7 +163,7 @@ class MRATransformer(nn.Module):
         self.logger.info('Stage 3 - Tokenization: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block3):
             x_rgb = blk(x_rgb, H, W)
-        x_rgb = self.norm3(x_rgb)
+        # x_rgb = self.norm3(x_rgb)
         x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         self.logger.info('Stage 3 - Output: {}'.format(x_rgb.shape))
         # print('###########Stage 3 - Output: {}'.format(x_rgb.shape))
@@ -179,9 +175,7 @@ class MRATransformer(nn.Module):
         # print('Stage 4 - Tokenization: {}'.format(x_rgb.shape))
         for j,blk in enumerate(self.block4):
             x_rgb = blk(x_rgb, H, W)
-        x_rgb = self.norm4(x_rgb)   # B, L, C
-        # x_rgb = x_rgb.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        self.logger.info('Stage 4 - Output: {}'.format(x_rgb.shape))
+        x_rgb = self.norm(x_rgb)   # B, L, C
         # print('########## Stage 4 - Output: {}'.format(x_rgb.shape))
 
         x = x_rgb.transpose(1,2).contiguous()
@@ -199,20 +193,30 @@ class MRATransformer(nn.Module):
 
     def flops(self):
         flops = 0
+        norm_flops = 0
         flops += self.patch_embed1.flops()
-        flops += self.patch_embed2.flops()
-        flops += self.patch_embed3.flops()
-        flops += self.patch_embed4.flops()
 
         for i, blk in enumerate(self.block1):
             flops += blk.flops()
+        flops += self.patch_embed2.flops()
+
         for i, blk in enumerate(self.block2):
             flops += blk.flops()
+        flops += self.patch_embed3.flops()
+
         for i, blk in enumerate(self.block3):
             flops += blk.flops()
+        flops += self.patch_embed4.flops()
+
         for i, blk in enumerate(self.block4):
             flops += blk.flops()
         
+        norm_flops = ((self.img_size[0]//32) **2) * self.embed_dims[3]
+
+        adv_avg_pool_flops = self.embed_dims[3] * ((self.img_size[0]//32) **2)
+        cls_flops = self.embed_dims[3] * self.num_classes
+
+        flops += norm_flops + adv_avg_pool_flops + cls_flops
         return flops
 
 
@@ -252,6 +256,7 @@ class mit_b2(MRATransformer):
 
 if __name__=="__main__":
     backbone = mit_b0(fuse_cfg=cfg, norm_layer = nn.BatchNorm2d)
+    print(backbone.flops())
     
     # ########print(backbone)
     B = 8

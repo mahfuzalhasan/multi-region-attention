@@ -46,7 +46,7 @@ class MultiScaleAttention(nn.Module):
         
         self.img_size = img_size
         self.H, self.W = img_size[0], img_size[1]
-        self.N_G = self.H//self.window_size * self.W//self.window_size
+        self.N_G = (self.H//self.window_size) * (self.W//self.window_size)
 
         assert self.num_heads%n_local_region_scales == 0
         # Linear embedding
@@ -174,29 +174,38 @@ class MultiScaleAttention(nn.Module):
         return attn_fused
 
     def flops(self):
-        # FLOPs for linear layers
-        flops_linear_q = 2 * self.dim * self.dim
-        flops_linear_kv = 2 * self.dim * self.dim * 2
-        head_dim = self.dim // self.num_heads
-        flops = 0
-        print("number of heads ", self.num_heads)
-        for i in range(self.num_heads):
-            r_size = self.local_region_shape[i]
-            if r_size == 1:
-                N = self.H * self.W
-                flops_attention_weight = N * head_dim * N
-                flops_attention_output = N * N * head_dim
+        # # qkv = self.qkv_proj(x): For linear projection
+        NW = self.window_size * self.window_size
+        N = self.H*self.W
 
-            else:
-                region_number = (self.H * self.W) // (r_size ** 2)
-                p = r_size ** 2
-                flops_attention_weight = region_number * (p * head_dim * p)
-                flops_attention_output = region_number * (p * p * head_dim)
-            flops_head = flops_attention_weight + flops_attention_output
-            flops += flops_head    
+        flops_qkv = N * self.dim * (3 * self.dim)
+        
+        flops_attention = 0
+        flops_downsample = 0
+        for i in range(self.n_local_region_scales):
+            flops_1_window = 0
+            if i>0:
+                kernel = int(math.pow(2, i))
+                h = self.H// kernel
+                w = self.W//kernel
+                # avg_pool 2d
+                flops_downsample += self.local_dim * h * w * (kernel*kernel + 1)
 
-        total_flops = flops_linear_q + flops_linear_kv + flops
-        return total_flops
+            N_window = self.N_G//math.pow(4,i)
+            # A = q*K.T         q,k shape --> B*num_region_7x7, self.local_head, NW*NW, self.head_dim
+            flops_1_window += self.local_head * NW * self.head_dim * NW
+            # y = A * v
+            flops_1_window += self.local_head * NW * NW * self.head_dim
+            
+            flops_windows = N_window * flops_1_window
+            flops_attention += flops_windows
+        
+        # projection flops
+        flops_proj = N * self.dim * self.dim
+        # total
+        flops = flops_qkv + flops_attention + flops_downsample + flops_proj
+        
+        return flops
 
 
         
