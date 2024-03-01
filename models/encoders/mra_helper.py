@@ -119,35 +119,23 @@ class CCF_FFN(nn.Module):
         # pwconv FLOPs = weights + bias
         N = H*W
         kH, kW = 1, 1
-        # Hout, Wout = H, W # pointwise convolution does not change the dimensions
-        pwconv_flops = (2 * self.hidden_features * self.in_features * H * W * kH * kW) + (self.hidden_features * H * W)
+        
+        # conv + bias
+        pwconv_flops = self.hidden_features * H * W * self.in_features + self.hidden_features * H * W
         #norm_1
         norm_1_flops = N * self.hidden_features
 
         # dwconv FLOPs
         kH, kW = 3, 3
-        # Hout = H + (2 * 1 - 3) // 1 + 1
-        # Wout = W + (2 * 1 - 3) // 1 + 1
-        dwconv_flops = (self.hidden_features * H * W * kH * kW * 2)
+        dwconv_flops = kH * kW * self.hidden_features * H * W + self.hidden_features * H * W    # conv + bias
         #norm_2
         norm_2_flops = N * self.hidden_features
 
         # fc FLOPs
-        fc_flops = (2 * self.hidden_features * self.in_features)
+        fc_flops =  H * W * self.hidden_features * self.in_features
 
         total_flops = pwconv_flops + norm_1_flops + dwconv_flops + norm_2_flops + fc_flops
         return total_flops
-
-# class Downsampling(nn.Module):
-#     """
-#     Downsampling after each transformer block
-#     """
-#     def __init__(self, img_size=(224, 224), patch_size=4, in_chans=3, embed_dim=96, 
-#                     use_conv_embed=False, norm_layer=None, use_pre_norm=False, is_stem=False):
-#         super().__init__()
-
-#         self.dwconv = nn.Conv2d(in_chans, in_chans, kernel_size=3, stride=1, padding=1, bias=True, group=hidden_features)
-
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
@@ -192,7 +180,7 @@ class Mlp(nn.Module):
     def flops(self):
         # H, W = self.H, self.W
         flops_mlp = self.fc1.in_features * self.fc1.out_features * 2
-        flops_mlp += self.dwconv.flops()
+        # flops_mlp += self.dwconv.flops()
         flops_mlp += self.fc2.in_features * self.fc2.out_features * 2
         return flops_mlp
 
@@ -201,8 +189,10 @@ class Block(nn.Module):
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, n_local_region_scales=3, img_size=(1024, 1024)):
         super().__init__()
         self.dim = dim
+        self.img_size = img_size
         self.norm1 = norm_layer(dim)
         self.n_local_region_scales = n_local_region_scales
+        self.mlp_ratio = mlp_ratio
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.attn = MultiScaleAttention(
             dim,
@@ -214,6 +204,7 @@ class Block(nn.Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         
+        # self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
         self.mlp = CCF_FFN(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, norm_layer=norm_layer, drop=drop)
 
         self.apply(self._init_weights)
@@ -238,7 +229,8 @@ class Block(nn.Module):
         x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
         return x
     
-    def flops(self, H, W):
+    def flops(self):
+        H, W = self.img_size
         N = H*W
         # FLOPs for MultiScaleAttention
 
@@ -246,8 +238,10 @@ class Block(nn.Module):
         norm_1_flops = N * self.dim
         norm_2_flops = N * self.dim
 
-        # FLOPs for Mlp
+        # FLOPs for Mlp:CCF-FFN
         mlp_flops = self.mlp.flops(H, W)
+        # Flops for Mlp
+        # mlp_flops = 2 * H * W * self.dim * self.dim * self.mlp_ratio
 
         total_flops = attn_flops + norm_1_flops + mlp_flops + norm_2_flops
         return total_flops

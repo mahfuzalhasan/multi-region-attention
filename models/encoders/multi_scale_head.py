@@ -179,6 +179,7 @@ class MultiScaleAttention(nn.Module):
             qkv = temp[:, :, :, i*local_C:i*local_C + local_C]
             # 3, B*num_region_7x7, num_local_head, Nr, head_dim
             qkv = qkv.reshape(3, B_, Nr, self.local_head, self.head_dim).permute(0, 1, 3, 2, 4).contiguous()
+            
             if i>0:
                 #3, B, num_local_head, num_region_7x7, 49, head_dim 
                 qkv = qkv.view(3, B, self.N_G, self.local_head, Nr, self.head_dim).permute(0, 1, 3, 2, 4, 5).contiguous()
@@ -209,28 +210,34 @@ class MultiScaleAttention(nn.Module):
 
     def flops(self):
         # # qkv = self.qkv_proj(x): For linear projection
-        N = self.window_size * self.window_size
-        flops_qkv = self.N_G * N * self.dim * 3 * self.dim 
+        N = self.H * self.W
+        NW = self.window_size * self.window_size
+        flops_qkv = N * self.dim * 3 * self.dim 
         
-        r = math.sqrt(self.N_G)
-        # attention flops
-        
-        flops_per_group = 0
+        flops_attention = 0
+        flops_downsample = 0
+
+        r = int(math.sqrt(self.N_G))
+     
         for i in range(self.n_local_region_scales):
+            flops_1_window = 0
             if i>0:
                 # merge region usingn avg pool --> merge_size = math.pow(2,i)
-                flops_per_group += (r**2) * N * self.local_head * self.head_dim
+                flops_downsample += (r**2) * N * self.local_head * self.head_dim
             
-            N_G_local = self.N_G//math.pow(4,i)
-            # A = q*K.T
-            flops_per_group += N_G_local * self.local_head * N * self.head_dim * N 
-            # A*v
-            flops_per_group += N_G_local * self.local_head * N * N * self.head_dim
+            N_window = self.N_G//math.pow(4,i)
+            # A = q*K.T         q,k shape --> B*num_region_7x7, self.local_head, NW*NW, self.head_dim
+            flops_1_window += self.local_head * NW * self.head_dim * NW
+            # y = A * v
+            flops_1_window += self.local_head * NW * NW * self.head_dim
+            
+            flops_windows = N_window * flops_1_window
+            flops_attention += flops_windows
         
         # projection flops
-        flops_proj = 2 * (self.H * self.W) * self.dim * self.dim
+        flops_proj = N * self.dim * self.dim
         # total
-        flops = flops_qkv + flops_per_group + flops_proj
+        flops = flops_qkv + flops_attention + flops_downsample + flops_proj
         return flops
 
 
