@@ -51,14 +51,18 @@ spec:
             ephemeral-storage: "500Gi"
             memory: 100Gi
             cpu: "10"
-            nvidia.com/gpu: "6"
+            nvidia.com/gpu: "8"
           requests:
             ephemeral-storage: "500Gi"
             memory: 100Gi
             cpu: "10"
-            nvidia.com/gpu: "6"
+            nvidia.com/gpu: "8"
         securityContext:
           runAsUser: 0
+      tolerations:
+      - key: "nvidia.com/gpu"
+        operator: "Exists"
+        effect: "NoSchedule"
       volumes:
       - name: dshm
         emptyDir:
