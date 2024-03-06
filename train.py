@@ -90,9 +90,9 @@ def Main(args):
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[dist.get_rank()])
 
     total_batch_size = config.DATASET.BATCH_SIZE * dist.get_world_size()
-    config.TRAIN.BASE_LR = config.TRAIN.BASE_LR * total_batch_size / 510.0
-    config.TRAIN.WARMUP_LR = config.TRAIN.WARMUP_LR * total_batch_size / 510.0
-    config.TRAIN.MIN_LR = config.TRAIN.MIN_LR * total_batch_size / 510.0
+    config.TRAIN.BASE_LR = config.TRAIN.BASE_LR * total_batch_size / 512.0
+    config.TRAIN.WARMUP_LR = config.TRAIN.WARMUP_LR * total_batch_size / 512.0
+    config.TRAIN.MIN_LR = config.TRAIN.MIN_LR * total_batch_size / 512.0
 
     def count_parameters(model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)

@@ -35,11 +35,11 @@ spec:
             apt-get install -y git && \
             echo '===========installation successful==========' && \
             mkdir -p /opt/repo/multi-region-attention && \
-            git clone --single-branch --branch conv-feature-merge https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
+            git clone --single-branch --branch conv-feature-merge-global-qkv https://github.com/mahfuzalhasan/multi-region-attention /opt/repo/multi-region-attention && \
             apt update && \
             echo 'git pulled successfully.' && \
             cd /opt/repo/multi-region-attention && \
-            torchrun --standalone --nproc_per_node=6 train.py imagenet --devices 6 --batchsize 170 && \
+            torchrun --standalone --nproc_per_node=8 train.py imagenet --devices 8 --batchsize 128 && \
             echo '===========training executed successfully=========='
         volumeMounts:
         - name: data
@@ -50,15 +50,19 @@ spec:
           limits:
             ephemeral-storage: "500Gi"
             memory: 100Gi
-            cpu: "10"
-            nvidia.com/gpu: "6"
+            cpu: "12"
+            nvidia.com/gpu: "8"
           requests:
             ephemeral-storage: "500Gi"
             memory: 100Gi
-            cpu: "10"
-            nvidia.com/gpu: "6"
+            cpu: "12"
+            nvidia.com/gpu: "8"
         securityContext:
           runAsUser: 0
+      tolerations:
+      - key: "nvidia.com/gpu"
+        operator: "Exists"
+        effect: "NoSchedule"
       volumes:
       - name: dshm
         emptyDir:
