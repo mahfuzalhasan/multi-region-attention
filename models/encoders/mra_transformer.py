@@ -42,9 +42,13 @@ class MRATransformer(nn.Module):
 
         # patch_embed
         self.patch_embed1 = PatchEmbed(img_size = self.img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dims[0], norm_layer=norm_layer)
-        self.patch_embed2 = PatchMerging(img_size=(img_size[0]// 4,img_size[1]//4), in_chans=embed_dims[0], norm_layer=norm_layer)
-        self.patch_embed3 = PatchMerging(img_size=(img_size[0]//8, img_size[1]//8), in_chans=embed_dims[1], norm_layer=norm_layer)
-        self.patch_embed4 = PatchMerging(img_size=(img_size[0]//16, img_size[1]//16), in_chans=embed_dims[2], norm_layer=norm_layer)
+        # self.patch_embed2 = PatchMerging(img_size=(img_size[0]// 4,img_size[1]//4), in_chans=embed_dims[0], norm_layer=norm_layer)
+        # self.patch_embed3 = PatchMerging(img_size=(img_size[0]//8, img_size[1]//8), in_chans=embed_dims[1], norm_layer=norm_layer)
+        # self.patch_embed4 = PatchMerging(img_size=(img_size[0]//16, img_size[1]//16), in_chans=embed_dims[2], norm_layer=norm_layer)
+
+        self.patch_embed2 = PatchEmbed(img_size=(img_size[0]// 4,img_size[1]//4), patch_size=2, in_chans=embed_dims[0], embed_dim=embed_dims[1], norm_layer=norm_layer)
+        self.patch_embed3 = PatchEmbed(img_size=(img_size[0]//8, img_size[1]//8), patch_size=2, in_chans=embed_dims[1], embed_dim=embed_dims[2], norm_layer=norm_layer)
+        self.patch_embed4 = PatchEmbed(img_size=(img_size[0]//16, img_size[1]//16), patch_size=2, in_chans=embed_dims[2], embed_dim=embed_dims[3], norm_layer=norm_layer)
 
         # transformer encoder
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
