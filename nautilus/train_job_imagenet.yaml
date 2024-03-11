@@ -13,7 +13,7 @@ spec:
               - key: nvidia.com/gpu.product
                 operator: In
                 values:
-                - NVIDIA-RTX-A6000
+                - NVIDIA-A100-SXM4-80GB
       containers:
       - name: cls-container
         image: ubuntu
@@ -50,17 +50,17 @@ spec:
           limits:
             ephemeral-storage: "500Gi"
             memory: 100Gi
-            cpu: "12"
-            nvidia.com/gpu: "8"
+            cpu: "20"
+            nvidia.com/gpu: "4"
           requests:
             ephemeral-storage: "500Gi"
             memory: 100Gi
-            cpu: "12"
-            nvidia.com/gpu: "8"
+            cpu: "20"
+            nvidia.com/gpu: "4"
         securityContext:
           runAsUser: 0
       tolerations:
-      - key: "nvidia.com/gpu"
+      - key: "nautilus.io/mizzou-vigir"
         operator: "Exists"
         effect: "NoSchedule"
       volumes:

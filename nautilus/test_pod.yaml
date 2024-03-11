@@ -22,11 +22,11 @@ spec:
       limits:
         memory: 32Gi
         cpu: "4"
-        nvidia.com/gpu: "2"
+        nvidia.com/gpu: "1"
       requests:
         memory: 32Gi
         cpu: "4"
-        nvidia.com/gpu: "2"
+        nvidia.com/gpu: "1"
     command: 
       - "sh"
       - "-c"
@@ -52,6 +52,10 @@ spec:
         torchrun --standalone --nproc_per_node=2 validation_only_local.py imagenet --devices 2 --batchsize 16 && \
         echo '===========Commands executed successfully.==========' && \
         sleep infinity
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Exists"
+      effect: "NoSchedule"
   volumes:
     - name: project
       persistentVolumeClaim:
