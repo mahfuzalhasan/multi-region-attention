@@ -1,97 +1,109 @@
-from pytorch_wavelets import DWTForward, DWTInverse
-import torch
+from pytorch_wavelets import DWTForward, DWTInverse, DTCWTForward, DTCWTInverse
 import matplotlib.pyplot as plt
-# from timm.data import create_transform
-
-
-xfm = DWTForward(J=3, wave='db3', mode='symmetric').cuda()
-ifm = DWTInverse(wave='db3', mode='symmetric').cuda()
-
-
 from PIL import Image
 from torchvision import transforms
 import torch
+import os, sys
+import torch.distributed as dist
 
+sys.path.append('/home/ma906813/project2023/multi-region-attention')
+import configs.config_imagenet
+from dataloader.imagenet.build import build_transform
+
+
+# Mock dist.get_rank for non-distributed training contexts
+# Check if distributed training is initialized; if not, mock it
+def mock_get_rank():
+    return 0
+if not dist.is_initialized():
+    dist.get_rank = mock_get_rank
+
+
+def calculate_energy(coefficients):
+    return torch.sum(coefficients ** 2)
 
 def load_image(path):
     # Path to your image file
     image_path = path
 
-    # Define the transformations: convert to grayscale, resize, convert to tensor
-    # TODO: Use the same transformations as the training data
-    transform = transforms.Compose([
-        transforms.Grayscale(num_output_channels=1),  # Convert to grayscale
-        transforms.Resize((224,224)),  # Resize to 256x256 pixels
-        transforms.ToTensor(),  # Convert to PyTorch Tensor
-    ])
+    # Using the same transformation as training data
+    transform = build_transform(True, configs.config_imagenet.config)
 
     # Load the image
     image = Image.open(image_path)
-
-    # Apply the transformations
     image_tensor = transform(image)
-
-    # Add a batch dimension (PyTorch expects batch, channel, height, width)
-    image_tensor = image_tensor.unsqueeze(0)
+    image_tensor = image_tensor.unsqueeze(0) # (B,C,H,W)
 
     # Move the tensor to GPU if available
     if torch.cuda.is_available():
         image_tensor = image_tensor.cuda()
-
     return image_tensor
-
-
 
 
 
 if __name__ == '__main__':
     img_path = '/home/ma906813/project2023/multi-region-attention/playground/n01440764_10026.JPEG'
+    
+    # load image + apply transform
     image = load_image(img_path)
-    # image = torch.randn(1, 1, 256, 256).cuda()
-    print(f'Input image shape: {image.shape}')
+    print(f'Input image tensor: {image.shape}')
 
-    Yl, Yh = xfm(image) 
-    print(f'Yl shape: {Yl.shape}')
-    print(f'Yh shape: {len(Yh)}')
-    print(f'Yh[0] shape: {Yh[0].shape}')
-    print(f'Yh[1] shape: {Yh[1].shape}')
-    print(f'Yh[2] shape: {Yh[2].shape}')
-
-    image_recon = ifm((Yl, Yh))
-    # print(f'Reconstructed image shape: {image_recon.shape}')
+    xfm3 = DWTForward(J=3, wave='db3', mode='symmetric').cuda()
+    xfm2 = DWTForward(J=2, wave='db2', mode='symmetric').cuda()
+    xfm1 = DWTForward(J=1, wave='db1', mode='symmetric').cuda()
+    xfm_seg = DWTForward(J=1, wave='haar', mode='zero').cuda()
+    # ifm = DWTInverse(wave='db3', mode='symmetric').cuda()    
 
 
-    # Assuming xfm and ifm are already defined and initialized
-    # Assuming image, Yl, Yh, and image_recon are already computed
 
-    # Move data to CPU and remove batch dimension for plotting
-    image_cpu = image.squeeze().cpu()
-    Yl_cpu = Yl.squeeze().cpu()
-    Yh_cpu = Yh[0].squeeze().cpu()  # Taking the first set of high-frequency components for simplicity
-    image_recon_cpu = image_recon.squeeze().cpu()
+    # Yl, Yh = xfm3(image) 
+    # print(f'Yl3 shape: {Yl.shape}')
+    # print(f'No of Yh3: {len(Yh)}')
+    # print(f'energy Yl3: {calculate_energy(Yl)}')
+    # Yl, Yh = xfm2(image) 
+    # print(f'Yl2 shape: {Yl.shape}')
+    # print(f'No of Yh2: {len(Yh)}')
+    # print(f'energy Yl2: {calculate_energy(Yl)}')
+    Yl, Yh = xfm1(image) 
+    print(f'Yl1 shape: {Yl.shape}')
+    print(f'No of Yh1: {len(Yh)}')
+    print(f'energy Yh1: {calculate_energy(Yh[0])}')
+    print(f'energy Yl1: {calculate_energy(Yl)}')
+    Yl, Yh = xfm_seg(image) 
+    print(f'Yl1 shape: {Yl.shape}')
+    print(f'No of Yh1: {len(Yh)}')
+    print(f'energy Yh1: {calculate_energy(Yh[0])}')
+    print(f'energy Yl1: {calculate_energy(Yl)}')
+    
 
-    # Plotting
+
+    # Plotting ----------------------------------------------------------------
     fig, axs = plt.subplots(1, 5, figsize=(20, 5))
 
-    # Input image
-    axs[0].imshow(image_cpu, cmap='gray')
+    ## Input image
+    # B,C,H,W -> H,W,C for plotting
+    axs[0].imshow(image.squeeze().permute(1, 2, 0).cpu().numpy())
     axs[0].set_title('Input Image')
     axs[0].axis('off')
 
-    # Low-frequency component
-    axs[1].imshow(Yl_cpu, cmap='gray')
+    ## Low-frequency component
+    axs[1].imshow(Yl.squeeze().permute(1, 2, 0).cpu().numpy())
     axs[1].set_title('Low-frequency Component')
     axs[1].axis('off')
 
-    # High-frequency component (first level)
-    # Note: Adjust the visualization as needed, this is a simplification
-    for i in range(len(Yh)):
-        axs[2+i].imshow(Yh_cpu[i], cmap='gray')  # Assuming Yh[0] is LH (horizontal details) for demonstration
-        axs[2+i].set_title('High-frequency Component' + str(i))
-        axs[2+i].axis('off')
+    # print(f'Yh[2] shape: {Yh[2].squeeze()[0].permute(1, 2, 0).cpu().numpy().shape}')
+    # exit()
+    ## High-frequency component (first level)
+    # print(len(Yh[2]))
+    # for i in range(Yh[2].shape[1]):
+    #     axs[2+i].imshow(Yh[2].squeeze()[i].permute(1, 2, 0).cpu().numpy())
+    #     axs[2+i].set_title('High-frequency Component' + str(i))
+    #     axs[2+i].axis('off')
 
-    # Reconstructed image
-    # axs[3+i].imshow(image_recon_cpu, cmap='gray')
+    ## Reconstructed image
+    # image_recon = ifm((Yl, Yh))
+    # print(f'Reconstructed image shape: {image_recon.shape}')
+    # axs[3+i].imshow(image_recon.squeeze().permute(1, 2, 0).cpu().numpy())
     # axs[3+i].set_title('Reconstructed Image')
     # axs[3+i].axis('off')
 
